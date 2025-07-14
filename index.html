@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat AI - Interfejs</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Własne style -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Kontener główny -->
+    <div class="max-w-4xl mx-auto h-screen flex flex-col">
+        <!-- Nagłówek -->
+        <header class="bg-white shadow-sm border-b px-6 py-4">
+            <h1 class="text-2xl font-semibold text-gray-800">Chat AI</h1>
+            <div id="connection-status" class="text-sm text-gray-500 mt-1">
+                Gotowy do wysyłania wiadomości
+            </div>
+        </header>
+
+        <!-- Obszar wyświetlania wiadomości -->
+        <div class="flex-1 overflow-hidden bg-white">
+            <div id="messages-container" class="h-full overflow-y-auto p-6 space-y-4">
+                <!-- Wiadomości będą dodawane dynamicznie tutaj -->
+                <div class="text-center text-gray-500 text-sm">
+                    Rozpocznij rozmowę wpisując wiadomość poniżej
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel wprowadzania wiadomości -->
+        <div class="bg-white border-t px-6 py-4">
+            <div class="flex gap-3">
+                <input 
+                    type="text" 
+                    id="message-input" 
+                    placeholder="Wpisz swoją wiadomość..."
+                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    maxlength="1000"
+                >
+                <button 
+                    id="send-button"
+                    class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                    Wyślij
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html> 

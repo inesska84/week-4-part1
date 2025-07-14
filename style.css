@@ -1,0 +1,40 @@
+/* Minimalistyczny CSS - głównie opieramy się na Tailwind CSS */
+
+/* Dodatkowe style dla scrollowania w kontenerze wiadomości */
+#messages-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+#messages-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+#messages-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+#messages-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Smooth scroll behavior */
+#messages-container {
+    scroll-behavior: smooth;
+}
+
+/* Dodatkowa animacja dla wiadomości */
+.message-fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+} 
