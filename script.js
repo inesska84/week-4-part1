@@ -42,6 +42,73 @@ messageInput.addEventListener('keypress', function(event) {
     }
 });
 
+// === FUNKCJA WYDOBYWANIA ODPOWIEDZI AI Z ZŁOŻONEJ STRUKTURY N8N ===
+function extractAIResponse(data) {
+    console.log('🔍 Analizuję odpowiedź n8n:', data);
+    
+    // Przypadek 1: Standardowa struktura {reply: "text"}
+    if (data.reply) {
+        console.log('✅ Znaleziono data.reply:', data.reply);
+        return data.reply;
+    }
+    
+    // Przypadek 2: Alternatywna struktura {message: "text"}
+    if (data.message) {
+        console.log('✅ Znaleziono data.message:', data.message);
+        return data.message;
+    }
+    
+    // Przypadek 3: Złożona struktura n8n - przeszukaj rekurencyjnie
+    const extractFromNestedObject = (obj, depth = 0) => {
+        if (depth > 5) return null; // Zapobieganie nieskończonej rekurencji
+        
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                const value = obj[key];
+                
+                // Jeśli wartość to string i wygląda na odpowiedź
+                if (typeof value === 'string' && value.length > 10) {
+                    // Sprawdź czy to nie jest techniczny klucz
+                    if (!key.includes('id') && !key.includes('code') && !key.includes('status')) {
+                        console.log(`✅ Znaleziono tekst w kluczu "${key}":`, value);
+                        return value;
+                    }
+                }
+                
+                // Rekurencyjne przeszukiwanie obiektów
+                if (typeof value === 'object' && value !== null) {
+                    const nestedResult = extractFromNestedObject(value, depth + 1);
+                    if (nestedResult) return nestedResult;
+                }
+            }
+        }
+        return null;
+    };
+    
+    // Sprawdź czy to obiekt z zagnieżdżonymi danymi
+    if (typeof data === 'object' && data !== null) {
+        // Sprawdź czy pierwszy klucz może być odpowiedzią (typowe dla n8n)
+        const firstKey = Object.keys(data)[0];
+        if (firstKey && typeof firstKey === 'string' && firstKey.length > 20) {
+            console.log('✅ Pierwszy klucz jako odpowiedź:', firstKey);
+            return firstKey;
+        }
+        
+        // Rekurencyjne wyszukiwanie
+        const extracted = extractFromNestedObject(data);
+        if (extracted) return extracted;
+    }
+    
+    // Przypadek 4: Jeśli to string, użyj go bezpośrednio
+    if (typeof data === 'string') {
+        console.log('✅ Odpowiedź jako string:', data);
+        return data;
+    }
+    
+    console.log('❌ Nie udało się wydobyć odpowiedzi AI');
+    return null;
+}
+
 // === GŁÓWNA FUNKCJA WYSYŁANIA WIADOMOŚCI ===
 async function handleSendMessage() {
     const messageText = messageInput.value.trim();
@@ -97,11 +164,9 @@ async function handleSendMessage() {
         }
         
         // Wyświetlenie odpowiedzi AI
-        if (data.reply) {
-            displayAIMessage(data.reply);
-            updateConnectionStatus('✅ Połączenie aktywne', 'success');
-        } else if (data.message) {
-            displayAIMessage(data.message);
+        const aiResponse = extractAIResponse(data);
+        if (aiResponse) {
+            displayAIMessage(aiResponse);
             updateConnectionStatus('✅ Połączenie aktywne', 'success');
         } else {
             displayAIMessage("✅ n8n webhook zareagował poprawnie!");
