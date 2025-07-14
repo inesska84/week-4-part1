@@ -45,20 +45,40 @@ messageInput.addEventListener('keypress', function(event) {
 // === FUNKCJA WYDOBYWANIA ODPOWIEDZI AI Z ZŁOŻONEJ STRUKTURY N8N ===
 function extractAIResponse(data) {
     console.log('🔍 Analizuję odpowiedź n8n:', data);
+    console.log('🔍 Typ danych:', typeof data);
+    console.log('🔍 Klucze:', Object.keys(data || {}));
     
     // Przypadek 1: Standardowa struktura {reply: "text"}
-    if (data.reply) {
+    if (data && typeof data === 'object' && data.reply) {
         console.log('✅ Znaleziono data.reply:', data.reply);
         return data.reply;
     }
     
     // Przypadek 2: Alternatywna struktura {message: "text"}
-    if (data.message) {
+    if (data && typeof data === 'object' && data.message) {
         console.log('✅ Znaleziono data.message:', data.message);
         return data.message;
     }
     
-    // Przypadek 3: Złożona struktura n8n - przeszukaj rekurencyjnie
+    // Przypadek 3: Jeśli dane to string, może zawierać JSON - spróbuj sparsować
+    if (typeof data === 'string') {
+        // Sprawdź czy to JSON string
+        if (data.trim().startsWith('{') || data.trim().startsWith('[')) {
+            try {
+                const parsed = JSON.parse(data);
+                console.log('🔄 Sparsowano JSON ze stringa:', parsed);
+                return extractAIResponse(parsed); // Rekurencyjnie analizuj sparsowany obiekt
+            } catch (e) {
+                console.log('⚠️ Nie udało się sparsować JSON, używam jako zwykły tekst');
+                return data;
+            }
+        } else {
+            console.log('✅ Odpowiedź jako zwykły tekst:', data);
+            return data;
+        }
+    }
+    
+    // Przypadek 4: Złożona struktura n8n - przeszukaj rekurencyjnie
     const extractFromNestedObject = (obj, depth = 0) => {
         if (depth > 5) return null; // Zapobieganie nieskończonej rekurencji
         
@@ -87,22 +107,16 @@ function extractAIResponse(data) {
     
     // Sprawdź czy to obiekt z zagnieżdżonymi danymi
     if (typeof data === 'object' && data !== null) {
-        // Sprawdź czy pierwszy klucz może być odpowiedzią (typowe dla n8n)
-        const firstKey = Object.keys(data)[0];
-        if (firstKey && typeof firstKey === 'string' && firstKey.length > 20) {
-            console.log('✅ Pierwszy klucz jako odpowiedź:', firstKey);
-            return firstKey;
-        }
-        
         // Rekurencyjne wyszukiwanie
         const extracted = extractFromNestedObject(data);
         if (extracted) return extracted;
-    }
-    
-    // Przypadek 4: Jeśli to string, użyj go bezpośrednio
-    if (typeof data === 'string') {
-        console.log('✅ Odpowiedź jako string:', data);
-        return data;
+        
+        // Jako ostatnia opcja - sprawdź czy pierwszy klucz może być odpowiedzią
+        const firstKey = Object.keys(data)[0];
+        if (firstKey && typeof firstKey === 'string' && firstKey.length > 20) {
+            console.log('⚠️ Używam pierwszego klucza jako odpowiedź:', firstKey);
+            return firstKey;
+        }
     }
     
     console.log('❌ Nie udało się wydobyć odpowiedzi AI');
