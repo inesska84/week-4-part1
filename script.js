@@ -1,10 +1,14 @@
 // === KONFIGURACJA ===
-// WAŻNE: Zastąp poniższy placeholder rzeczywistym URL-em Twojego webhooka n8n
 // Oryginalny URL webhooka n8n
 const ORIGINAL_N8N_WEBHOOK_URL = 'https://anna2084.app.n8n.cloud/webhook-test/b4a90a57-3ee9-4caa-ac80-73cc38dbbbce';
 
-// URL lokalnego proxy CORS (rozwiązuje problemy z CORS)
-const N8N_WEBHOOK_URL = 'http://localhost:3001';
+// Automatyczne wykrycie środowiska (lokalne vs produkcja)
+const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+// URL do użycia (lokalne proxy lub bezpośredni webhook)
+const N8N_WEBHOOK_URL = IS_LOCAL 
+    ? 'http://localhost:3001'  // Lokalnie używaj proxy (rozwiązuje CORS)
+    : ORIGINAL_N8N_WEBHOOK_URL; // Produkcyjnie używaj bezpośrednio n8n
 
 // === REFERENCJE DO ELEMENTÓW DOM ===
 const messagesContainer = document.getElementById('messages-container');
@@ -23,8 +27,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Usunięcie wiadomości powitalnej po pierwszej interakcji
     clearWelcomeMessage();
     
-    // Wyświetlenie statusu gotowości
-    updateConnectionStatus('🔗 Gotowy (proxy: localhost:3001)', 'default');
+    // Wyświetlenie statusu gotowości w zależności od środowiska
+    const statusMessage = IS_LOCAL 
+        ? '🔗 Gotowy (tryb lokalny: proxy localhost:3001)'
+        : '🌐 Gotowy (tryb produkcyjny: bezpośrednie połączenie z n8n)';
+    
+    updateConnectionStatus(statusMessage, 'default');
+    
+    // Log diagnostyczny
+    console.log('🏗️ Środowisko:', IS_LOCAL ? 'LOKALNE' : 'PRODUKCJA');
+    console.log('🎯 Webhook URL:', N8N_WEBHOOK_URL);
 });
 
 // === OBSŁUGA ZDARZEŃ ===
@@ -190,17 +202,35 @@ async function handleSendMessage() {
     } catch (error) {
         // Obsługa błędów
         console.error('Błąd podczas wysyłania wiadomości:', error);
+        console.error('🔧 Środowisko:', IS_LOCAL ? 'LOKALNE' : 'PRODUKCJA');
+        console.error('🎯 URL:', N8N_WEBHOOK_URL);
         
         let errorMessage = 'Wystąpił błąd podczas komunikacji z AI.';
+        let statusMessage = '❌ Błąd połączenia';
         
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            errorMessage = 'Błąd połączenia z proxy. Sprawdź czy serwer proxy jest uruchomiony (node cors-proxy.js).';
+            if (IS_LOCAL) {
+                errorMessage = 'Błąd połączenia z proxy. Sprawdź czy serwer proxy jest uruchomiony (node cors-proxy.js).';
+                statusMessage = '❌ Błąd proxy - uruchom serwer';
+            } else {
+                errorMessage = 'Błąd połączenia z n8n webhook. Sprawdź URL webhooka i połączenie internetowe.';
+                statusMessage = '❌ Błąd połączenia z n8n';
+            }
         } else if (error.message.includes('HTTP')) {
             errorMessage = `Błąd serwera: ${error.message}`;
+            statusMessage = IS_LOCAL ? '❌ Błąd proxy' : '❌ Błąd n8n webhook';
+        } else if (error.message.includes('CORS')) {
+            if (IS_LOCAL) {
+                errorMessage = 'Błąd CORS - uruchom serwer proxy lokalnie (node cors-proxy.js).';
+                statusMessage = '❌ CORS - brak proxy';
+            } else {
+                errorMessage = 'Błąd CORS - webhook może nie być dostępny z przeglądarki.';
+                statusMessage = '❌ CORS - błąd webhooka';
+            }
         }
         
         displaySystemMessage(`❌ ${errorMessage}`);
-        updateConnectionStatus('❌ Błąd proxy - uruchom serwer', 'error');
+        updateConnectionStatus(statusMessage, 'error');
         
     } finally {
         // Przywrócenie normalnego stanu
