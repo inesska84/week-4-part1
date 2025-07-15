@@ -1,6 +1,6 @@
 // === KONFIGURACJA ===
 // Oryginalny URL webhooka n8n
-const ORIGINAL_N8N_WEBHOOK_URL = 'https://anna2084.app.n8n.cloud/webhook-test/2358331c-6729-49ff-8188-53ae4e034053';
+const ORIGINAL_N8N_WEBHOOK_URL = 'https://anna2084.app.n8n.cloud/webhook-test/be2ba487-d26e-4864-92c7-8747039983e6';
 
 // Automatyczne wykrycie środowiska (lokalne vs produkcja)
 const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';

@@ -3,7 +3,7 @@ const https = require('https');
 const url = require('url');
 
 const PORT = 3001;
-const TARGET_URL = 'https://anna2084.app.n8n.cloud/webhook-test/2358331c-6729-49ff-8188-53ae4e034053';
+const TARGET_URL = 'https://anna2084.app.n8n.cloud/webhook-test/be2ba487-d26e-4864-92c7-8747039983e6';
 
 const server = http.createServer((req, res) => {
     // Dodanie nagłówków CORS
