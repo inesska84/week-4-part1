@@ -67,16 +67,16 @@ function extractAIResponse(data) {
     console.log('🔍 Typ danych:', typeof data);
     console.log('🔍 Klucze:', Object.keys(data || {}));
     
-    // Przypadek 1: Standardowa struktura {reply: "text"}
-    if (data && typeof data === 'object' && data.reply) {
+    // WCZESNE RETURN - Przypadek 1: Standardowa struktura {reply: "text"}
+    if (data && typeof data === 'object' && data.reply && typeof data.reply === 'string') {
         console.log('✅ Znaleziono data.reply:', data.reply);
-        return data.reply;
+        return data.reply; // ZATRZYMAJ TUTAJ - nie sprawdzaj nic więcej!
     }
     
-    // Przypadek 2: Alternatywna struktura {message: "text"}
-    if (data && typeof data === 'object' && data.message) {
+    // WCZESNE RETURN - Przypadek 2: Alternatywna struktura {message: "text"}
+    if (data && typeof data === 'object' && data.message && typeof data.message === 'string') {
         console.log('✅ Znaleziono data.message:', data.message);
-        return data.message;
+        return data.message; // ZATRZYMAJ TUTAJ
     }
     
     // Przypadek 3: Jeśli dane to string, może zawierać JSON - spróbuj sparsować
@@ -97,43 +97,47 @@ function extractAIResponse(data) {
         }
     }
     
-    // Przypadek 4: Złożona struktura n8n - przeszukaj rekurencyjnie
-    const extractFromNestedObject = (obj, depth = 0) => {
-        if (depth > 5) return null; // Zapobieganie nieskończonej rekurencji
+    // Przypadek 4: Złożona struktura n8n - przeszukaj rekurencyjnie (tylko jeśli NIE ma reply/message)
+    if (typeof data === 'object' && data !== null) {
+        console.log('🔍 Brak standardowych pól, szukam w zagnieżdżonych strukturach...');
         
-        for (const key in obj) {
-            if (obj.hasOwnProperty(key)) {
-                const value = obj[key];
-                
-                // Jeśli wartość to string i wygląda na odpowiedź
-                if (typeof value === 'string' && value.length > 10) {
-                    // Sprawdź czy to nie jest techniczny klucz
-                    if (!key.includes('id') && !key.includes('code') && !key.includes('status')) {
-                        console.log(`✅ Znaleziono tekst w kluczu "${key}":`, value);
-                        return value;
+        const extractFromNestedObject = (obj, depth = 0) => {
+            if (depth > 5) return null; // Zapobieganie nieskończonej rekurencji
+            
+            for (const key in obj) {
+                if (obj.hasOwnProperty(key)) {
+                    const value = obj[key];
+                    
+                    // Jeśli wartość to string i wygląda na odpowiedź
+                    if (typeof value === 'string' && value.length > 10) {
+                        // Sprawdź czy to nie jest techniczny klucz
+                        if (!key.includes('id') && !key.includes('code') && !key.includes('status')) {
+                            console.log(`✅ Znaleziono tekst w zagnieżdżonym kluczu "${key}":`, value);
+                            return value;
+                        }
+                    }
+                    
+                    // Rekurencyjne przeszukiwanie obiektów
+                    if (typeof value === 'object' && value !== null) {
+                        const nestedResult = extractFromNestedObject(value, depth + 1);
+                        if (nestedResult) return nestedResult;
                     }
                 }
-                
-                // Rekurencyjne przeszukiwanie obiektów
-                if (typeof value === 'object' && value !== null) {
-                    const nestedResult = extractFromNestedObject(value, depth + 1);
-                    if (nestedResult) return nestedResult;
-                }
             }
-        }
-        return null;
-    };
-    
-    // Sprawdź czy to obiekt z zagnieżdżonymi danymi
-    if (typeof data === 'object' && data !== null) {
+            return null;
+        };
+        
         // Rekurencyjne wyszukiwanie
         const extracted = extractFromNestedObject(data);
-        if (extracted) return extracted;
+        if (extracted) {
+            console.log('✅ Znaleziono w zagnieżdżonej strukturze:', extracted);
+            return extracted;
+        }
         
-        // Jako ostatnia opcja - sprawdź czy pierwszy klucz może być odpowiedzią
+        // OSTATECZNY FALLBACK - tylko jeśli nic innego nie zadziałało
         const firstKey = Object.keys(data)[0];
         if (firstKey && typeof firstKey === 'string' && firstKey.length > 20) {
-            console.log('⚠️ Używam pierwszego klucza jako odpowiedź:', firstKey);
+            console.log('⚠️ FALLBACK: Używam pierwszego klucza jako odpowiedź:', firstKey);
             return firstKey;
         }
     }
