@@ -1,14 +1,20 @@
 // === KONFIGURACJA ===
 // Oryginalny URL webhooka n8n
-const ORIGINAL_N8N_WEBHOOK_URL = 'https://anna2084.app.n8n.cloud/webhook-test/b4a90a57-3ee9-4caa-ac80-73cc38dbbbce';
+const ORIGINAL_N8N_WEBHOOK_URL = 'https://anna2084.app.n8n.cloud/webhook/b4a90a57-3ee9-4caa-ac80-73cc38dbbbce';
 
 // Automatyczne wykrycie środowiska (lokalne vs produkcja)
 const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-// URL do użycia (lokalne proxy lub bezpośredni webhook)
-const N8N_WEBHOOK_URL = IS_LOCAL 
-    ? 'http://localhost:3001'  // Lokalnie używaj proxy (rozwiązuje CORS)
-    : ORIGINAL_N8N_WEBHOOK_URL; // Produkcyjnie używaj bezpośrednio n8n
+// CORS proxy dla produkcji (rozwiązuje problemy z CORS w n8n)
+const CORS_PROXY_URL = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
+
+// URL do użycia w zależności od środowiska
+let N8N_WEBHOOK_URL = IS_LOCAL 
+    ? 'http://localhost:3001'  // Lokalnie używaj lokalny proxy
+    : ORIGINAL_N8N_WEBHOOK_URL; // Produkcyjnie spróbuj bezpośrednio n8n
+
+// Flaga dla CORS fallback w produkcji
+let USE_CORS_PROXY = false;
 
 // === REFERENCJE DO ELEMENTÓW DOM ===
 const messagesContainer = document.getElementById('messages-container');
@@ -30,13 +36,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Wyświetlenie statusu gotowości w zależności od środowiska
     const statusMessage = IS_LOCAL 
         ? '🔗 Gotowy (tryb lokalny: proxy localhost:3001)'
-        : '🌐 Gotowy (tryb produkcyjny: bezpośrednie połączenie z n8n)';
+        : '🌐 Gotowy (tryb produkcyjny: n8n + fallback CORS proxy)';
     
     updateConnectionStatus(statusMessage, 'default');
     
     // Log diagnostyczny
     console.log('🏗️ Środowisko:', IS_LOCAL ? 'LOKALNE' : 'PRODUKCJA');
     console.log('🎯 Webhook URL:', N8N_WEBHOOK_URL);
+    console.log('🔄 CORS Proxy URL:', CORS_PROXY_URL);
 });
 
 // === OBSŁUGA ZDARZEŃ ===
@@ -157,20 +164,50 @@ async function handleSendMessage() {
         setLoadingState(true);
         updateConnectionStatus('📤 Wysyłanie wiadomości...', 'sending');
         
-        // Wysłanie żądania HTTP POST do webhooka n8n
-        const response = await fetch(N8N_WEBHOOK_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                message: messageText
-            })
-        });
+        // Funkcja wysyłania z fallback dla CORS
+        const sendMessage = async (url, useCorsProxy = false) => {
+            const actualUrl = useCorsProxy ? CORS_PROXY_URL : url;
+            console.log(`📡 Próbuję wysłać do: ${actualUrl}`);
+            console.log(`🔧 CORS Proxy: ${useCorsProxy ? 'TAK' : 'NIE'}`);
+            
+            const response = await fetch(actualUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: messageText
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            return response;
+        };
         
-        // Sprawdzenie czy odpowiedź jest poprawna
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Główna logika wysyłania z fallback
+        let response;
+        try {
+            // Pierwsze podejście: użyj aktualnego URL
+            response = await sendMessage(N8N_WEBHOOK_URL, USE_CORS_PROXY);
+        } catch (error) {
+            // Jeśli błąd CORS w produkcji, spróbuj z CORS proxy
+            if (!IS_LOCAL && !USE_CORS_PROXY && (
+                error.message.includes('CORS') || 
+                error.message.includes('fetch') ||
+                error.name === 'TypeError'
+            )) {
+                console.log('🔄 Błąd CORS - przełączam na CORS proxy...');
+                USE_CORS_PROXY = true;
+                N8N_WEBHOOK_URL = CORS_PROXY_URL;
+                updateConnectionStatus('🔄 Przełączam na CORS proxy...', 'sending');
+                
+                response = await sendMessage(CORS_PROXY_URL, true);
+            } else {
+                throw error; // Inne błędy przerzuć dalej
+            }
         }
         
         // Parsowanie odpowiedzi JSON
@@ -191,12 +228,20 @@ async function handleSendMessage() {
         
         // Wyświetlenie odpowiedzi AI
         const aiResponse = extractAIResponse(data);
+        
+        // Komunikat o sukcesie w zależności od metody
+        const successStatus = IS_LOCAL 
+            ? '✅ Połączenie aktywne (proxy lokalny)'
+            : USE_CORS_PROXY 
+                ? '✅ Połączenie aktywne (CORS proxy)' 
+                : '✅ Połączenie aktywne (bezpośrednie)';
+        
         if (aiResponse) {
             displayAIMessage(aiResponse);
-            updateConnectionStatus('✅ Połączenie aktywne', 'success');
+            updateConnectionStatus(successStatus, 'success');
         } else {
             displayAIMessage("✅ n8n webhook zareagował poprawnie!");
-            updateConnectionStatus('✅ Połączenie aktywne', 'success');
+            updateConnectionStatus(successStatus, 'success');
         }
         
     } catch (error) {
