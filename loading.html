@@ -52,7 +52,7 @@
             // Pobierz parametry z URL
             const urlParams = new URLSearchParams(window.location.search);
             const messageData = urlParams.get('message');
-            const webhookUrl = urlParams.get('webhookUrl') || 'https://anna2084.app.n8n.cloud/webhook-test/be2ba487-d26e-4864-92c7-8747039983e6';
+            const webhookUrl = urlParams.get('webhookUrl') || 'https://anna2084.app.n8n.cloud/webhook-test/1221a370-32ad-4fd0-92d2-1a930407c2aa';
             
             // Element statusu
             const statusMessage = document.getElementById('status-message');
@@ -71,17 +71,39 @@
                     const apiUrl = isLocalhost ? 'http://localhost:3001' : webhookUrl;
                     
                     updateProgress(30);
-                    statusMessage.textContent = "Przygotowanie prezentacji...";
+                    statusMessage.textContent = "Łączenie z serwerem...";
                     
-                    // Automatyczne przekierowanie do prezentacji po określonym czasie
+                    // Wysyłanie żądania do n8n
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            message: messageData || 'generate_presentation'
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Błąd HTTP: ${response.status}`);
+                    }
+                    
+                    updateProgress(60);
+                    statusMessage.textContent = "Otrzymano dane, przygotowanie prezentacji...";
+                    
+                    // Przetwarzanie odpowiedzi
+                    const data = await response.json();
+                    console.log('Otrzymane dane:', data);
+                    
+                    updateProgress(90);
+                    statusMessage.textContent = "Prezentacja gotowa!";
+                    
+                    // Przekierowanie do strony prezentacji z danymi
                     setTimeout(() => {
-                        updateProgress(100);
-                        statusMessage.textContent = "Prezentacja gotowa!";
-                        
-                        setTimeout(() => {
-                            window.location.href = 'presentation.html';
-                        }, 500);
-                    }, 2000);
+                        // Przekazujemy dane do presentation.html
+                        window.location.href = 'presentation.html?data=' + encodeURIComponent(JSON.stringify(data));
+                    }, 1000);
+                    
                 } catch (error) {
                     console.error('Błąd podczas pobierania danych:', error);
                     statusMessage.textContent = "Wystąpił błąd. Przekierowuję do prezentacji...";
@@ -95,6 +117,7 @@
             }
             
             // Rozpocznij pobieranie danych
+            updateProgress(10);
             fetchDataFromN8n();
             
             // Obsługa przycisku anulowania

@@ -226,12 +226,17 @@ async function handleSendMessage() {
             if (aiResponse.includes('podsumowanie') || 
                 aiResponse.includes('summary') || 
                 aiResponse.includes('json_result') ||
-                aiResponse.includes('JSON object')) {
+                aiResponse.includes('JSON object') ||
+                aiResponse.includes('We\'ll use your answers') ||
+                aiResponse.includes('generate the pitch')) {
+                
+                console.log('🔄 Wykryto zakończenie rozmowy, przekierowuję do strony ładowania...');
+                displaySystemMessage('Przygotowuję prezentację na podstawie Twojego pomysłu...');
                 
                 // Automatyczne przekierowanie do strony ładowania po podsumowaniu
                 setTimeout(() => {
-                    window.location.href = 'loading.html?message=' + encodeURIComponent(messageText);
-                }, 3000);
+                    window.location.href = 'loading.html?message=' + encodeURIComponent(messageText) + '&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
+                }, 2000);
             }
         } else {
             displaySystemMessage('Nie udało się odczytać odpowiedzi.');
