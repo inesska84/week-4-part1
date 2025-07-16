@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generowanie prezentacji</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        @keyframes spinner {
+            to {transform: rotate(360deg);}
+        }
+        .loading-spinner {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 6px solid #e5e7eb;
+            border-top-color: #4f46e5;
+            animation: spinner 1s linear infinite;
+        }
+        .fade-in {
+            animation: fadeIn 0.8s;
+        }
+        @keyframes fadeIn {
+            from {opacity: 0;}
+            to {opacity: 1;}
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-500 to-purple-600 h-screen flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4 fade-in">
+        <h1 class="text-center text-2xl font-bold mb-4">Generowanie Twojej prezentacji...</h1>
+        
+        <div class="flex justify-center my-8">
+            <div class="loading-spinner"></div>
+        </div>
+        
+        <p class="text-center text-gray-600 mb-8">Proszę czekać, trwa przetwarzanie Twojego pomysłu...</p>
+        
+        <div class="progress bg-gray-200 rounded-full h-2 mb-6">
+            <div id="progress-bar" class="bg-blue-600 rounded-full h-2 w-0 transition-all duration-300"></div>
+        </div>
+        
+        <div class="text-center">
+            <button id="cancel-button" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-gray-700 transition-all">
+                Wstecz
+            </button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Symulacja postępu
+            const progressBar = document.getElementById('progress-bar');
+            let progress = 0;
+            const interval = setInterval(function() {
+                progress += Math.random() * 5;
+                if (progress > 100) progress = 100;
+                progressBar.style.width = progress + '%';
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    // Po zakończeniu symulacji postępu, przekieruj do prezentacji
+                    setTimeout(() => {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const messageData = urlParams.get('message');
+                        
+                        // W rzeczywistości tutaj byłoby wysłanie zapytania do backendu
+                        // i przekierowanie do prezentacji z otrzymanymi danymi
+                        window.location.href = 'presentation.html';
+                    }, 500);
+                }
+            }, 300);
+            
+            // Obsługa przycisku anulowania
+            document.getElementById('cancel-button').addEventListener('click', function() {
+                window.location.href = 'index.html';
+            });
+        });
+    </script>
+</body>
+</html> 
