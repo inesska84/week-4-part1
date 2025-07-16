@@ -34,7 +34,7 @@
             <div class="loading-spinner"></div>
         </div>
         
-        <p class="text-center text-gray-600 mb-8">Proszę czekać, trwa przetwarzanie Twojego pomysłu...</p>
+        <p class="text-center text-gray-600 mb-8" id="status-message">Proszę czekać, trwa przetwarzanie Twojego pomysłu...</p>
         
         <div class="progress bg-gray-200 rounded-full h-2 mb-6">
             <div id="progress-bar" class="bg-blue-600 rounded-full h-2 w-0 transition-all duration-300"></div>
@@ -49,27 +49,53 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Symulacja postępu
+            // Pobierz parametry z URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const messageData = urlParams.get('message');
+            const webhookUrl = urlParams.get('webhookUrl') || 'https://anna2084.app.n8n.cloud/webhook-test/be2ba487-d26e-4864-92c7-8747039983e6';
+            
+            // Element statusu
+            const statusMessage = document.getElementById('status-message');
             const progressBar = document.getElementById('progress-bar');
-            let progress = 0;
-            const interval = setInterval(function() {
-                progress += Math.random() * 5;
-                if (progress > 100) progress = 100;
-                progressBar.style.width = progress + '%';
-                
-                if (progress >= 100) {
-                    clearInterval(interval);
-                    // Po zakończeniu symulacji postępu, przekieruj do prezentacji
+            
+            // Funkcja do aktualizacji paska postępu
+            function updateProgress(percent) {
+                progressBar.style.width = percent + '%';
+            }
+            
+            // Funkcja do pobierania danych z n8n
+            async function fetchDataFromN8n() {
+                try {
+                    // Określ, czy używamy proxy CORS
+                    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                    const apiUrl = isLocalhost ? 'http://localhost:3001' : webhookUrl;
+                    
+                    updateProgress(30);
+                    statusMessage.textContent = "Przygotowanie prezentacji...";
+                    
+                    // Automatyczne przekierowanie do prezentacji po określonym czasie
                     setTimeout(() => {
-                        const urlParams = new URLSearchParams(window.location.search);
-                        const messageData = urlParams.get('message');
+                        updateProgress(100);
+                        statusMessage.textContent = "Prezentacja gotowa!";
                         
-                        // W rzeczywistości tutaj byłoby wysłanie zapytania do backendu
-                        // i przekierowanie do prezentacji z otrzymanymi danymi
+                        setTimeout(() => {
+                            window.location.href = 'presentation.html';
+                        }, 500);
+                    }, 2000);
+                } catch (error) {
+                    console.error('Błąd podczas pobierania danych:', error);
+                    statusMessage.textContent = "Wystąpił błąd. Przekierowuję do prezentacji...";
+                    updateProgress(100);
+                    
+                    // W przypadku błędu, przekieruj do prezentacji bez danych
+                    setTimeout(() => {
                         window.location.href = 'presentation.html';
-                    }, 500);
+                    }, 1000);
                 }
-            }, 300);
+            }
+            
+            // Rozpocznij pobieranie danych
+            fetchDataFromN8n();
             
             // Obsługa przycisku anulowania
             document.getElementById('cancel-button').addEventListener('click', function() {

@@ -1,6 +1,6 @@
 // === KONFIGURACJA ===
 // Oryginalny URL webhooka n8n
-const ORIGINAL_N8N_WEBHOOK_URL = 'https://anna2084.app.n8n.cloud/webhook-test/be2ba487-d26e-4864-92c7-8747039983e6';
+const ORIGINAL_N8N_WEBHOOK_URL = 'https://anna2084.app.n8n.cloud/webhook-test/1221a370-32ad-4fd0-92d2-1a930407c2aa';
 
 // Automatyczne wykrycie środowiska (lokalne vs produkcja)
 const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -155,8 +155,6 @@ async function handleSendMessage() {
         return;
     }
     
-
-    
     try {
         // Wyświetlenie wiadomości użytkownika
         displayUserMessage(messageText);
@@ -197,96 +195,57 @@ async function handleSendMessage() {
             // Pierwsze podejście: użyj aktualnego URL
             response = await sendMessage(N8N_WEBHOOK_URL, USE_CORS_PROXY);
         } catch (error) {
-            // Jeśli błąd CORS w produkcji, spróbuj z CORS proxy
-            if (!IS_LOCAL && !USE_CORS_PROXY && (
-                error.message.includes('CORS') || 
-                error.message.includes('fetch') ||
-                error.name === 'TypeError'
-            )) {
-                console.log('🔄 Błąd CORS - przełączam na CORS proxy...');
+            console.log('⚠️ Błąd pierwszego podejścia:', error.message);
+            
+            // Jeśli jesteśmy w produkcji i nie używamy jeszcze CORS proxy, spróbuj z nim
+            if (!IS_LOCAL && !USE_CORS_PROXY) {
+                console.log('🔄 Próbuję z CORS proxy...');
                 USE_CORS_PROXY = true;
-                N8N_WEBHOOK_URL = CORS_PROXY_URL;
-                updateConnectionStatus('🔄 Przełączam na CORS proxy...', 'sending');
-                
-                response = await sendMessage(CORS_PROXY_URL, true);
+                try {
+                    response = await sendMessage(N8N_WEBHOOK_URL, USE_CORS_PROXY);
+                } catch (proxyError) {
+                    throw new Error(`Błąd z CORS proxy: ${proxyError.message}`);
+                }
             } else {
-                throw error; // Inne błędy przerzuć dalej
+                throw error;
             }
         }
         
-        // Parsowanie odpowiedzi JSON
-        let data;
-        const responseText = await response.text();
+        // Przetwarzanie odpowiedzi
+        const data = await response.json();
+        console.log('📥 Otrzymano odpowiedź:', data);
         
-        if (responseText.trim()) {
-            try {
-                data = JSON.parse(responseText);
-            } catch (parseError) {
-                console.error('JSON Parse Error:', parseError);
-                data = { reply: responseText }; // Użyj raw text jako odpowiedź
-            }
-        } else {
-            // Pusta odpowiedź z n8n
-            data = { reply: "✅ Wiadomość została odebrana przez n8n (pusta odpowiedź)" };
-        }
-        
-        // Wyświetlenie odpowiedzi AI
+        // Wydobycie odpowiedzi AI z potencjalnie złożonej struktury
         const aiResponse = extractAIResponse(data);
         
-        // Komunikat o sukcesie w zależności od metody
-        const successStatus = IS_LOCAL 
-            ? '✅ Połączenie aktywne (proxy lokalny)'
-            : USE_CORS_PROXY 
-                ? '✅ Połączenie aktywne (CORS proxy)' 
-                : '✅ Połączenie aktywne (bezpośrednie)';
-        
         if (aiResponse) {
+            // Wyświetlenie odpowiedzi AI
             displayAIMessage(aiResponse);
-            updateConnectionStatus(successStatus, 'success');
+            
+            // Sprawdź czy odpowiedź zawiera informację o zakończeniu rozmowy
+            if (aiResponse.includes('podsumowanie') || 
+                aiResponse.includes('summary') || 
+                aiResponse.includes('json_result') ||
+                aiResponse.includes('JSON object')) {
+                
+                // Automatyczne przekierowanie do strony ładowania po podsumowaniu
+                setTimeout(() => {
+                    window.location.href = 'loading.html?message=' + encodeURIComponent(messageText);
+                }, 3000);
+            }
         } else {
-            displayAIMessage("✅ n8n webhook zareagował poprawnie!");
-            updateConnectionStatus(successStatus, 'success');
+            displaySystemMessage('Nie udało się odczytać odpowiedzi.');
         }
+        
+        // Resetowanie stanu ładowania
+        setLoadingState(false);
+        updateConnectionStatus('✅ Gotowy do wysyłania', 'default');
         
     } catch (error) {
-        // Obsługa błędów
-        console.error('Błąd podczas wysyłania wiadomości:', error);
-        console.error('🔧 Środowisko:', IS_LOCAL ? 'LOKALNE' : 'PRODUKCJA');
-        console.error('🎯 URL:', N8N_WEBHOOK_URL);
-        
-        let errorMessage = 'Wystąpił błąd podczas komunikacji z AI.';
-        let statusMessage = '❌ Błąd połączenia';
-        
-        if (error.name === 'TypeError' && error.message.includes('fetch')) {
-            if (IS_LOCAL) {
-                errorMessage = 'Błąd połączenia z proxy. Sprawdź czy serwer proxy jest uruchomiony (node cors-proxy.js).';
-                statusMessage = '❌ Błąd proxy - uruchom serwer';
-            } else {
-                errorMessage = 'Błąd połączenia z n8n webhook. Sprawdź URL webhooka i połączenie internetowe.';
-                statusMessage = '❌ Błąd połączenia z n8n';
-            }
-        } else if (error.message.includes('HTTP')) {
-            errorMessage = `Błąd serwera: ${error.message}`;
-            statusMessage = IS_LOCAL ? '❌ Błąd proxy' : '❌ Błąd n8n webhook';
-        } else if (error.message.includes('CORS')) {
-            if (IS_LOCAL) {
-                errorMessage = 'Błąd CORS - uruchom serwer proxy lokalnie (node cors-proxy.js).';
-                statusMessage = '❌ CORS - brak proxy';
-            } else {
-                errorMessage = 'Błąd CORS - webhook może nie być dostępny z przeglądarki.';
-                statusMessage = '❌ CORS - błąd webhooka';
-            }
-        }
-        
-        displaySystemMessage(`❌ ${errorMessage}`);
-        updateConnectionStatus(statusMessage, 'error');
-        
-    } finally {
-        // Przywrócenie normalnego stanu
+        console.error('❌ Błąd:', error);
+        displaySystemMessage(`Wystąpił błąd: ${error.message}`);
         setLoadingState(false);
-        
-        // Przywrócenie fokusu na pole wprowadzania
-        messageInput.focus();
+        updateConnectionStatus('❌ Błąd połączenia', 'error');
     }
 }
 
@@ -315,84 +274,72 @@ function displaySystemMessage(message) {
 
 function createMessageElement(content, type) {
     const messageDiv = document.createElement('div');
-    messageDiv.classList.add('message-fade-in');
+    messageDiv.className = 'message-container flex ' + (type === 'user' ? 'justify-end' : 'justify-start');
     
-    let avatarIcon, bgColor, textAlign, nameLabel;
+    let messageContent = '';
     
-    switch (type) {
-        case 'user':
-            avatarIcon = '👤';
-            bgColor = 'bg-blue-500';
-            textAlign = 'justify-end';
-            nameLabel = 'Ty';
-            break;
-        case 'ai':
-            avatarIcon = '🤖';
-            bgColor = 'bg-gray-500';
-            textAlign = 'justify-start';
-            nameLabel = 'AI';
-            break;
-        case 'system':
-            avatarIcon = 'ℹ️';
-            bgColor = 'bg-yellow-500';
-            textAlign = 'justify-center';
-            nameLabel = 'System';
-            break;
+    if (type === 'user') {
+        messageContent = `
+            <div class="message user-message bg-blue-500 text-white px-4 py-2 rounded-lg max-w-[80%]">
+                ${content}
+            </div>
+        `;
+    } else if (type === 'ai') {
+        messageContent = `
+            <div class="message ai-message bg-gray-100 text-gray-800 px-4 py-2 rounded-lg max-w-[80%]">
+                ${content}
+            </div>
+        `;
+    } else if (type === 'system') {
+        messageContent = `
+            <div class="message system-message bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg max-w-[80%] mx-auto">
+                ${content}
+            </div>
+        `;
     }
     
-    messageDiv.innerHTML = `
-        <div class="flex ${textAlign}">
-            <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${type === 'user' ? 'bg-blue-600 text-white' : type === 'ai' ? 'bg-gray-100 text-gray-800' : 'bg-yellow-100 text-yellow-800'}">
-                <div class="flex items-center mb-1">
-                    <span class="text-sm mr-2">${avatarIcon}</span>
-                    <span class="text-xs font-medium opacity-75">${nameLabel}</span>
-                </div>
-                <div class="text-sm">${content}</div>
-            </div>
-        </div>
-    `;
-    
+    messageDiv.innerHTML = messageContent;
     return messageDiv;
 }
 
 function addMessageToContainer(messageElement) {
+    // Usuń wiadomość powitalną, jeśli istnieje
+    clearWelcomeMessage();
+    
+    // Dodaj nową wiadomość
     messagesContainer.appendChild(messageElement);
     
-    // Automatyczne przewinięcie do końca
+    // Przewiń do najnowszej wiadomości
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-// === FUNKCJE POMOCNICZE ===
-
 function setLoadingState(isLoading) {
+    // Wyłącz przycisk podczas ładowania
     sendButton.disabled = isLoading;
-    messageInput.disabled = isLoading;
     
+    // Dodaj/usuń klasę wskazującą na ładowanie
     if (isLoading) {
-        sendButton.textContent = 'Wysyłanie...';
-        sendButton.classList.add('opacity-50');
+        sendButton.classList.add('opacity-70');
+        sendButton.innerHTML = '<span class="loading-dots">Wysyłanie</span>';
     } else {
-        sendButton.textContent = 'Wyślij';
-        sendButton.classList.remove('opacity-50');
+        sendButton.classList.remove('opacity-70');
+        sendButton.innerHTML = 'Wyślij';
     }
 }
 
 function updateConnectionStatus(message, type = 'default') {
     connectionStatus.textContent = message;
     
-    // Usunięcie poprzednich klas statusu
-    connectionStatus.classList.remove('text-gray-500', 'text-green-600', 'text-red-600', 'text-yellow-600', 'text-blue-600');
+    // Resetuj klasy
+    connectionStatus.className = 'text-sm mt-1';
     
-    // Dodanie odpowiedniej klasy w zależności od typu
+    // Dodaj odpowiednią klasę w zależności od typu
     switch (type) {
-        case 'success':
-            connectionStatus.classList.add('text-green-600');
-            break;
         case 'error':
             connectionStatus.classList.add('text-red-600');
             break;
-        case 'warning':
-            connectionStatus.classList.add('text-yellow-600');
+        case 'success':
+            connectionStatus.classList.add('text-green-600');
             break;
         case 'sending':
             connectionStatus.classList.add('text-blue-600');
@@ -403,8 +350,8 @@ function updateConnectionStatus(message, type = 'default') {
 }
 
 function clearWelcomeMessage() {
-    // Usunięcie wiadomości powitalnej po pierwszej interakcji
-    const welcomeMessage = messagesContainer.querySelector('.text-center');
+    // Usuń wiadomość powitalną, jeśli istnieje
+    const welcomeMessage = messagesContainer.querySelector('.text-center.text-gray-500');
     if (welcomeMessage) {
         welcomeMessage.remove();
     }

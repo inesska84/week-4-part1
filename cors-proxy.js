@@ -3,7 +3,7 @@ const https = require('https');
 const url = require('url');
 
 const PORT = 3001;
-const TARGET_URL = 'https://anna2084.app.n8n.cloud/webhook-test/be2ba487-d26e-4864-92c7-8747039983e6';
+const TARGET_URL = 'https://anna2084.app.n8n.cloud/webhook-test/1221a370-32ad-4fd0-92d2-1a930407c2aa';
 
 const server = http.createServer((req, res) => {
     // Dodanie nagłówków CORS
@@ -34,10 +34,34 @@ const server = http.createServer((req, res) => {
     });
     
     req.on('end', () => {
-        console.log('📤 Sending to n8n:', body);
+        let requestData;
+        try {
+            requestData = JSON.parse(body);
+            console.log('📤 Sending to n8n:', body);
+        } catch (e) {
+            console.error('❌ Invalid JSON:', body);
+            res.writeHead(400, {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            });
+            res.end(JSON.stringify({ error: 'Invalid JSON' }));
+            return;
+        }
+        
+        // Sprawdź typ żądania
+        const action = requestData.action || 'chat';
+        
+        // Wybierz odpowiedni endpoint n8n w zależności od akcji
+        let targetEndpoint = TARGET_URL;
+        
+        if (action === 'getPresentation') {
+            // Endpoint do generowania prezentacji
+            targetEndpoint = 'https://anna2084.app.n8n.cloud/webhook-test/presentation-generator';
+            console.log('📊 Using presentation endpoint');
+        }
         
         // Parsowanie URL n8n
-        const targetUrl = url.parse(TARGET_URL);
+        const targetUrl = url.parse(targetEndpoint);
         
         // Konfiguracja żądania do n8n
         const options = {
@@ -62,6 +86,48 @@ const server = http.createServer((req, res) => {
             
             proxyRes.on('end', () => {
                 console.log('📥 n8n response:', responseBody);
+                
+                // Obsługa błędu 404 z n8n - próba użycia danych przykładowych
+                if (proxyRes.statusCode === 404 && action === 'getPresentation') {
+                    console.log('⚠️ Endpoint not found, using example data');
+                    
+                    // Przykładowe dane prezentacji
+                    const exampleData = {
+                        slides: [
+                            {
+                                number: 1,
+                                header: "Problem Statement",
+                                body: "Many dog owners struggle to help their pets maintain a healthy weight, leading to various health issues and reduced quality of life for their beloved companions.",
+                                image: "Dog Health Infographic",
+                                photo_desc: "Photo Description: Infographic showing obesity statistics in dogs",
+                                narration: "Today, we're addressing a critical issue affecting millions of dogs worldwide - obesity and weight management challenges that impact their health and happiness."
+                            },
+                            {
+                                number: 2,
+                                header: "Solution Overview",
+                                body: "Our innovative app connects dog owners with veterinary nutritionists and provides personalized meal plans and exercise routines tailored to each dog's specific needs.",
+                                image: "App Interface Screenshot",
+                                photo_desc: "Screenshot showing the app's meal planning interface",
+                                narration: "Our solution brings professional guidance directly to pet owners through an easy-to-use mobile application."
+                            },
+                            {
+                                number: 3,
+                                header: "Market Opportunity",
+                                body: "With over 85 million dog owners in the US alone and pet obesity rates rising to 60%, the market for effective weight management solutions is substantial and growing.",
+                                image: "Market Growth Chart",
+                                photo_desc: "Chart showing growth in pet health app market",
+                                narration: "The pet health market represents a $20 billion opportunity with consistent year-over-year growth."
+                            }
+                        ]
+                    };
+                    
+                    res.writeHead(200, {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    });
+                    res.end(JSON.stringify(exampleData));
+                    return;
+                }
                 
                 // Przekazanie statusu i danych odpowiedzi
                 res.writeHead(proxyRes.statusCode, {

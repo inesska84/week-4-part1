@@ -11,48 +11,151 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Funkcja do pobrania danych prezentacji z URL lub z n8n
     async function getPresentationData() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const dataParam = urlParams.get('data');
-        
-        // Jeśli dane są przekazane w URL
-        if (dataParam) {
-            try {
-                const decodedData = decodeURIComponent(dataParam);
-                const presentationData = JSON.parse(decodedData);
-                return presentationData;
-            } catch (error) {
-                console.error('Błąd podczas parsowania danych z URL:', error);
-            }
-        }
-        
-        // Jeśli jest parametr webhookUrl, spróbuj pobrać dane z n8n
-        const webhookUrl = urlParams.get('webhookUrl');
-        if (webhookUrl) {
-            try {
-                // Określ, czy używamy proxy CORS
-                const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                const apiUrl = isLocalhost ? 'http://localhost:3001' : webhookUrl;
-                
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ action: 'getPresentation' })
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Błąd pobierania danych z n8n');
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const dataParam = urlParams.get('data');
+            
+            // Jeśli dane są przekazane w URL
+            if (dataParam) {
+                try {
+                    const decodedData = decodeURIComponent(dataParam);
+                    const presentationData = JSON.parse(decodedData);
+                    console.log('📊 Dane z URL:', presentationData);
+                    
+                    // Sprawdź czy dane zawierają slajdy
+                    if (presentationData && presentationData.slides && Array.isArray(presentationData.slides)) {
+                        return presentationData;
+                    } else if (presentationData && presentationData.json_result) {
+                        // Obsługa przypadku, gdy mamy dane z n8n w innym formacie
+                        // Konwersja danych z formatu n8n do formatu prezentacji
+                        console.log('🔄 Konwersja danych z n8n do formatu prezentacji');
+                        return convertDataToPresentation(presentationData);
+                    }
+                } catch (error) {
+                    console.error('❌ Błąd podczas parsowania danych z URL:', error);
+                    throw new Error('Nieprawidłowy format danych w URL');
                 }
-                
-                const data = await response.json();
-                return data;
-            } catch (error) {
-                console.error('Błąd podczas pobierania danych z n8n:', error);
+            }
+            
+            // Jeśli jest parametr webhookUrl, spróbuj pobrać dane z n8n
+            const webhookUrl = urlParams.get('webhookUrl');
+            if (webhookUrl) {
+                try {
+                    // Określ, czy używamy proxy CORS
+                    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                    const apiUrl = isLocalhost ? 'http://localhost:3001' : webhookUrl;
+                    
+                    console.log('🌐 Pobieranie danych z:', apiUrl);
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            action: 'getPresentation',
+                            message: urlParams.get('message') || 'generate_presentation'
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Błąd HTTP: ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('📊 Dane z n8n:', data);
+                    
+                    // Sprawdź czy dane zawierają slajdy
+                    if (data && data.slides && Array.isArray(data.slides)) {
+                        return data;
+                    } else if (data && data.json_result) {
+                        // Obsługa przypadku, gdy mamy dane z n8n w innym formacie
+                        return convertDataToPresentation(data);
+                    } else {
+                        throw new Error('Nieprawidłowy format danych z n8n');
+                    }
+                } catch (error) {
+                    console.error('❌ Błąd podczas pobierania danych z n8n:', error);
+                    throw error;
+                }
+            }
+            
+            // Jeśli nie udało się pobrać danych, zwróć przykładowe dane
+            console.log('ℹ️ Używam przykładowych danych');
+            return getExampleData();
+        } catch (error) {
+            console.error('❌ Błąd w getPresentationData:', error);
+            return getExampleData();
+        }
+    }
+    
+    // Funkcja konwertująca dane z n8n do formatu prezentacji
+    function convertDataToPresentation(data) {
+        console.log('🔄 Konwersja danych:', data);
+        
+        // Sprawdź różne możliwe formaty danych
+        let jsonResult = null;
+        
+        if (data.json_result) {
+            jsonResult = data.json_result;
+        } else if (data.output && data.output.json_result) {
+            jsonResult = data.output.json_result;
+        } else {
+            // Szukaj głębiej w strukturze
+            for (const key in data) {
+                if (typeof data[key] === 'object' && data[key] !== null) {
+                    if (data[key].json_result) {
+                        jsonResult = data[key].json_result;
+                        break;
+                    } else if (data[key].output && data[key].output.json_result) {
+                        jsonResult = data[key].output.json_result;
+                        break;
+                    }
+                }
             }
         }
         
-        // Jeśli nie udało się pobrać danych, zwróć przykładowe dane
+        // Jeśli nie znaleziono danych, użyj przykładowych
+        if (!jsonResult) {
+            console.warn('⚠️ Nie znaleziono danych w formacie json_result, używam przykładowych');
+            return getExampleData();
+        }
+        
+        // Konwersja danych do formatu prezentacji
+        const presentationData = {
+            slides: [
+                {
+                    number: 1,
+                    header: "Problem Statement",
+                    body: `Many ${jsonResult.customer || 'users'} struggle with ${jsonResult.problem || 'various issues'}.`,
+                    image: "Problem Visualization",
+                    photo_desc: `Photo showing ${jsonResult.problem || 'problem'} visualization`,
+                    narration: `We've identified a critical problem affecting ${jsonResult.customer || 'users'} related to ${jsonResult.problem || 'various issues'}.`
+                },
+                {
+                    number: 2,
+                    header: "Our Solution",
+                    body: `We provide a solution that is uniquely ${jsonResult.unique || 'effective'} for ${jsonResult.customer || 'users'}.`,
+                    image: "Solution Diagram",
+                    photo_desc: "Diagram illustrating our solution approach",
+                    narration: `Our approach offers a ${jsonResult.unique || 'unique'} solution to the ${jsonResult.problem || 'problem'}.`
+                },
+                {
+                    number: 3,
+                    header: "Benefits & Value Proposition",
+                    body: `By being ${jsonResult.unique || 'different'}, we deliver exceptional value to ${jsonResult.customer || 'users'} struggling with ${jsonResult.problem || 'problems'}.`,
+                    image: "Benefits Chart",
+                    photo_desc: "Chart showing key benefits of our solution",
+                    narration: "The unique advantages of our approach translate into measurable benefits for our customers."
+                }
+            ]
+        };
+        
+        console.log('📊 Wygenerowane dane prezentacji:', presentationData);
+        return presentationData;
+    }
+    
+    // Funkcja zwracająca przykładowe dane
+    function getExampleData() {
         return {
             slides: [
                 {
@@ -175,6 +278,17 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Błąd podczas inicjalizacji prezentacji:', error);
             slideIndicator.textContent = 'Błąd ładowania prezentacji';
+            
+            // Wyświetl komunikat o błędzie
+            slidesContainer.innerHTML = `
+                <div class="p-8 text-center">
+                    <div class="text-red-600 text-xl mb-4">❌ Wystąpił błąd podczas ładowania prezentacji</div>
+                    <p class="text-gray-700 mb-4">${error.message}</p>
+                    <a href="index.html" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg">
+                        Powrót do strony głównej
+                    </a>
+                </div>
+            `;
         }
     }
 
