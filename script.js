@@ -24,7 +24,107 @@ const connectionStatus = document.getElementById('connection-status');
 
 // === PRZECHOWYWANIE WIADOMOŚCI ===
 let messages = [];
-let conversationComplete = false; // Flaga do śledzenia zakończenia rozmowy
+
+// === FUNKCJA WYDOBYWANIA ODPOWIEDZI AI Z ZŁOŻONEJ STRUKTURY N8N ===
+function extractAIResponse(data) {
+    console.log('🔍 Analizuję odpowiedź n8n:', data);
+    console.log('🔍 Typ danych:', typeof data);
+    console.log('🔍 Klucze:', Object.keys(data || {}));
+    
+    // WCZESNE RETURN - Przypadek 1: Standardowa struktura {reply: "text"}
+    if (data && typeof data === 'object' && data.reply && typeof data.reply === 'string') {
+        console.log('✅ Znaleziono data.reply:', data.reply);
+        return data.reply; // ZATRZYMAJ TUTAJ - nie sprawdzaj nic więcej!
+    }
+    
+    // WCZESNE RETURN - Przypadek 2: Alternatywna struktura {message: "text"}
+    if (data && typeof data === 'object' && data.message && typeof data.message === 'string') {
+        console.log('✅ Znaleziono data.message:', data.message);
+        return data.message; // ZATRZYMAJ TUTAJ
+    }
+    
+    // WCZESNE RETURN - Przypadek 3: Bezpośredni string
+    if (typeof data === 'string' && data.trim()) {
+        console.log('✅ Znaleziono bezpośredni string:', data);
+        return data.trim(); // ZATRZYMAJ TUTAJ
+    }
+    
+    // Przypadek 4: Zagnieżdżona struktura - przeszukaj głębiej
+    if (data && typeof data === 'object') {
+        console.log('🔍 Przeszukuję zagnieżdżoną strukturę...');
+        
+        // Przeszukaj wszystkie wartości w obiekcie
+        for (const [key, value] of Object.entries(data)) {
+            console.log(`🔍 Sprawdzam klucz: ${key}`, value);
+            
+            // Jeśli wartość to string i zawiera tekst
+            if (typeof value === 'string' && value.trim()) {
+                console.log('✅ Znaleziono tekst w kluczu:', key, '→', value);
+                return value.trim();
+            }
+            
+            // Jeśli wartość to obiekt, sprawdź czy ma właściwość 'output'
+            if (value && typeof value === 'object' && value.output && typeof value.output === 'string') {
+                console.log('✅ Znaleziono value.output:', value.output);
+                return value.output;
+            }
+            
+            // Jeśli wartość to obiekt, rekurencyjnie sprawdź
+            if (value && typeof value === 'object') {
+                const nestedResult = extractAIResponse(value);
+                if (nestedResult) {
+                    console.log('✅ Znaleziono w zagnieżdżonej strukturze:', nestedResult);
+                    return nestedResult;
+                }
+            }
+        }
+    }
+    
+    console.log('❌ Nie znaleziono odpowiedzi AI w strukturze');
+    return null;
+}
+
+// === FUNKCJA DODAWANIA PRZYCISKU GENEROWANIA PREZENTACJI ===
+function addPresentationButton() {
+    // Sprawdź czy przycisk już istnieje
+    if (document.getElementById('presentationButton')) {
+        return;
+    }
+    
+    console.log('🎯 Dodaję przycisk generowania prezentacji');
+    
+    const button = document.createElement('button');
+    button.id = 'presentationButton';
+    button.innerHTML = '🎨 Generuj mi prezentację!';
+    button.className = 'w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:from-purple-700 hover:to-blue-700 transition duration-300 transform hover:scale-105 mt-4';
+    
+    button.onclick = function() {
+        console.log('🚀 Użytkownik kliknął przycisk generowania prezentacji');
+        const lastUserMessage = messages.length > 0 ? messages[messages.length - 1].content : 'Zakończenie rozmowy';
+        const redirectUrl = 'loading.html?message=' + encodeURIComponent(lastUserMessage) + 
+                          '&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
+        console.log('🔗 Przekierowuję do:', redirectUrl);
+        window.location.href = redirectUrl;
+    };
+    
+    // Dodaj przycisk do kontenera z wiadomościami
+    const messagesContainer = document.getElementById('messages');
+    if (messagesContainer) {
+        const buttonContainer = document.createElement('div');
+        buttonContainer.className = 'mb-4 px-4';
+        buttonContainer.appendChild(button);
+        
+        const helpText = document.createElement('p');
+        helpText.className = 'text-sm text-gray-600 text-center mt-2';
+        helpText.textContent = '💡 Naciśnij ten przycisk po zakończeniu rozmowy z AI';
+        buttonContainer.appendChild(helpText);
+        
+        messagesContainer.appendChild(buttonContainer);
+        
+        // Scroll do przycisku
+        button.scrollIntoView({ behavior: 'smooth' });
+    }
+}
 
 // === INICJALIZACJA ===
 document.addEventListener('DOMContentLoaded', function() {
@@ -62,161 +162,6 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('🎯 Webhook URL:', N8N_WEBHOOK_URL);
     console.log('🔄 CORS Proxy URL:', CORS_PROXY_URL);
 });
-
-// === OBSŁUGA ZDARZEŃ ===
-
-// Obsługa kliknięcia przycisku "Wyślij"
-sendButton.addEventListener('click', function() {
-    handleSendMessage();
-});
-
-// Obsługa naciśnięcia klawisza Enter w polu wprowadzania
-messageInput.addEventListener('keypress', function(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        handleSendMessage();
-    }
-});
-
-// === FUNKCJA WYDOBYWANIA ODPOWIEDZI AI Z ZŁOŻONEJ STRUKTURY N8N ===
-function extractAIResponse(data) {
-    console.log('🔍 Analizuję odpowiedź n8n:', data);
-    console.log('🔍 Typ danych:', typeof data);
-    console.log('🔍 Klucze:', Object.keys(data || {}));
-    
-    // WCZESNE RETURN - Przypadek 1: Standardowa struktura {reply: "text"}
-    if (data && typeof data === 'object' && data.reply && typeof data.reply === 'string') {
-        console.log('✅ Znaleziono data.reply:', data.reply);
-        checkForConversationEnd(data.reply);
-        return data.reply; // ZATRZYMAJ TUTAJ - nie sprawdzaj nic więcej!
-    }
-    
-    // WCZESNE RETURN - Przypadek 2: Alternatywna struktura {message: "text"}
-    if (data && typeof data === 'object' && data.message && typeof data.message === 'string') {
-        console.log('✅ Znaleziono data.message:', data.message);
-        checkForConversationEnd(data.message);
-        return data.message; // ZATRZYMAJ TUTAJ
-    }
-    
-    // Przypadek 3: Jeśli dane to string, może zawierać JSON - spróbuj sparsować
-    if (typeof data === 'string') {
-        // Sprawdź czy to JSON string
-        if (data.trim().startsWith('{') || data.trim().startsWith('[')) {
-            try {
-                const parsed = JSON.parse(data);
-                console.log('🔄 Sparsowano JSON ze stringa:', parsed);
-                return extractAIResponse(parsed); // Rekurencyjnie analizuj sparsowany obiekt
-            } catch (e) {
-                console.log('⚠️ Nie udało się sparsować JSON, używam jako zwykły tekst');
-                checkForConversationEnd(data);
-                return data;
-            }
-        } else {
-            console.log('✅ Odpowiedź jako zwykły tekst:', data);
-            checkForConversationEnd(data);
-            return data;
-        }
-    }
-    
-    // Przypadek 4: Złożona struktura n8n - przeszukaj rekurencyjnie (tylko jeśli NIE ma reply/message)
-    if (typeof data === 'object' && data !== null) {
-        console.log('🔍 Brak standardowych pól, szukam w zagnieżdżonych strukturach...');
-        
-        const extractFromNestedObject = (obj, depth = 0) => {
-            if (depth > 5) return null; // Zapobieganie nieskończonej rekurencji
-            
-            for (const key in obj) {
-                if (obj.hasOwnProperty(key)) {
-                    const value = obj[key];
-                    
-                    // Jeśli wartość to string i wygląda na odpowiedź
-                    if (typeof value === 'string' && value.length > 10) {
-                        // Sprawdź czy to nie jest techniczny klucz
-                        if (!key.includes('id') && !key.includes('code') && !key.includes('status')) {
-                            console.log(`✅ Znaleziono tekst w zagnieżdżonym kluczu "${key}":`, value);
-                            checkForConversationEnd(value);
-                            return value;
-                        }
-                    }
-                    
-                    // Rekurencyjne przeszukiwanie obiektów
-                    if (typeof value === 'object' && value !== null) {
-                        const nestedResult = extractFromNestedObject(value, depth + 1);
-                        if (nestedResult) return nestedResult;
-                    }
-                }
-            }
-            return null;
-        };
-        
-        // Rekurencyjne wyszukiwanie
-        const extracted = extractFromNestedObject(data);
-        if (extracted) {
-            console.log('✅ Znaleziono w zagnieżdżonej strukturze:', extracted);
-            return extracted;
-        }
-        
-        // OSTATECZNY FALLBACK - tylko jeśli nic innego nie zadziałało
-        const firstKey = Object.keys(data)[0];
-        if (firstKey && typeof firstKey === 'string' && firstKey.length > 20) {
-            console.log('⚠️ FALLBACK: Używam pierwszego klucza jako odpowiedź:', firstKey);
-            checkForConversationEnd(firstKey);
-            return firstKey;
-        }
-    }
-    
-    console.log('❌ Nie udało się wydobyć odpowiedzi AI');
-    return null;
-}
-
-// === FUNKCJA SPRAWDZANIA ZAKOŃCZENIA ROZMOWY ===
-function checkForConversationEnd(text) {
-    console.log('🔍 Sprawdzam tekst pod kątem zakończenia rozmowy:', text);
-    
-    // BARDZO PRECYZYJNE TRIGGERY - tylko faktyczne zakończenie po wszystkich 3 pytaniach
-    const finalEndTriggers = [
-        'Thanks! You\'ve completed all questions. We\'ll use your answers to generate the pitch',
-        'Now I\'ll prepare your final output',
-        'Here\'s the output:',
-        'Here\'s the summary:',
-        'I\'ve compiled everything into a structured format for you',
-        'Thanks for sharing your ideas! I\'ve compiled everything',
-        'Thanks for providing the information! I\'ll compile it into a structured format'
-    ];
-    
-    // DODATOWE SPRAWDZENIE: czy tekst zawiera JSON z wszystkimi 3 kluczami
-    const hasCompleteJson = text.includes('customer') && 
-                           text.includes('problem') && 
-                           text.includes('unique') &&
-                           text.includes('json_result');
-    
-    // DŁUGOŚĆ SPRAWDZENIE: finalna odpowiedź powinna być długa (zawiera podsumowanie)
-    const isLongResponse = text.length > 300;
-    
-    // SPRAWDZENIE SŁÓW KOŃCOWYCH: czy zawiera strukturę JSON
-    const hasJsonStructure = text.includes('```json') || text.includes('json_result');
-    
-    const foundTrigger = finalEndTriggers.find(trigger => 
-        text.includes(trigger)
-    );
-    
-    if (foundTrigger && hasCompleteJson && isLongResponse && hasJsonStructure) {
-        console.log('✅ ZNALEZIONO KOMPLETNY TRIGGER ZAKOŃCZENIA:');
-        console.log('   - Trigger:', foundTrigger);
-        console.log('   - Ma kompletny JSON:', hasCompleteJson);
-        console.log('   - Jest długa odpowiedź:', isLongResponse);
-        console.log('   - Ma strukturę JSON:', hasJsonStructure);
-        conversationComplete = true;
-        return true;
-    }
-    
-    if (foundTrigger) {
-        console.log('⚠️ Znaleziono trigger ale brak warunków dodatkowych:', foundTrigger);
-    }
-    
-    console.log('❌ Nie znaleziono kompletnego triggera zakończenia');
-    return false;
-}
 
 // === GŁÓWNA FUNKCJA WYSYŁANIA WIADOMOŚCI ===
 async function handleSendMessage() {
@@ -291,105 +236,15 @@ async function handleSendMessage() {
         const aiResponse = extractAIResponse(data);
         
         if (aiResponse) {
-            // SPRAWDŹ CZY TO FINALNA ODPOWIEDŹ Z JSON
-            const isFinalizingResponse = aiResponse.includes('Thanks for your answers!') || 
-                                       aiResponse.includes('Thanks! You\'ve completed all questions') ||
-                                       aiResponse.includes('json_result');
+            // Wyświetlenie odpowiedzi AI
+            displayAIMessage(aiResponse);
             
-            let displayMessage = aiResponse;
+            console.log('🔍 Odpowiedź AI została wyświetlona:', aiResponse);
             
-            // Jeśli to finalna odpowiedź, pokazuj tylko krótką wiadomość
-            if (isFinalizingResponse) {
-                displayMessage = "Thanks for your answers! 🎉\n\nPrzygotowuję prezentację na podstawie Twojego pomysłu...";
-            }
-            
-            // Wyświetlenie odpowiedzi AI (krótka lub pełna)
-            displayAIMessage(displayMessage);
-            
-            console.log('�� SPRAWDZANIE PEŁNEJ ODPOWIEDZI AI:', aiResponse);
-            
-            // BARDZO PROSTSZE SPRAWDZENIE - szukaj konkretnej frazy TYLKO po zakończeniu wszystkich 3 pytań
-            const simpleTriggers = [
-                'Thanks! You\'ve completed all questions. We\'ll use your answers to generate the pitch',
-                'Now I\'ll prepare your final output',
-                'I\'ve compiled everything into a structured format for you',
-                'Thanks for sharing your ideas! I\'ve compiled everything',
-                'Thanks for providing the information! I\'ll compile it into a structured format'
-            ];
-            
-            // DODATOWE WARUNKI BEZPIECZEŃSTWA
-            const hasJsonResult = aiResponse.includes('json_result');
-            const hasAllThreeKeys = aiResponse.includes('customer') && 
-                                   aiResponse.includes('problem') && 
-                                   aiResponse.includes('unique');
-            const isVeryLongResponse = aiResponse.length > 400; // Jeszcze dłuższa odpowiedź
-            
-            const foundSimpleTrigger = simpleTriggers.find(trigger => 
-                aiResponse.includes(trigger)
-            );
-            
-            // TYLKO jeśli wszystkie warunki są spełnione
-            if (foundSimpleTrigger && hasJsonResult && hasAllThreeKeys && isVeryLongResponse) {
-                console.log('🚀 ZNALEZIONO PROSTĘ FRAZĘ - PRZEKIEROWANIE!', foundSimpleTrigger);
-                setTimeout(() => {
-                    const redirectUrl = 'loading.html?message=' + encodeURIComponent(messageText) + 
-                                      '&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
-                    console.log('🔗 Przekierowuję do:', redirectUrl);
-                    window.location.href = redirectUrl;
-                }, 2000); // Daj użytkownikowi więcej czasu przeczytać krótką wiadomość
-                return;
-            }
-            
-            // NATYCHMIASTOWE SPRAWDZENIE ZAKOŃCZENIA
-            if (checkForConversationEnd(aiResponse) || conversationComplete) {
-                console.log('🚀 PRZEKIEROWANIE DO LOADING - ROZMOWA ZAKOŃCZONA!');
-                setTimeout(() => {
-                    const redirectUrl = 'loading.html?message=' + encodeURIComponent(messageText) + 
-                                      '&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
-                    console.log('🔗 Przekierowuję do:', redirectUrl);
-                    window.location.href = redirectUrl;
-                }, 1000); // Daj użytkownikowi czas przeczytać odpowiedź
-                return; // Zatrzymaj dalsze przetwarzanie
-            }
-            
-            // Sprawdź czy odpowiedź zawiera informację o zakończeniu rozmowy (stary kod)
-            const endTriggers = [
-                'podsumowanie',
-                'summary',
-                'json_result',
-                'JSON object',
-                'We\'ll use your answers',
-                'generate the pitch',
-                'completed all questions',
-                'Here\'s the output',
-                'Here\'s the summary',
-                'Thanks! You\'ve completed',
-                'Thank you for your response! Your solution is unique',
-                'Here\'s a summary of your answers',
-                'Now, here\'s the JSON object'
-            ];
-            
-            const containsEndTrigger = endTriggers.some(trigger => 
-                aiResponse.toLowerCase().includes(trigger.toLowerCase())
-            );
-            
-            const hasUniqueAndThirdQuestion = aiResponse.toLowerCase().includes('unique') && 
-                                            (aiResponse.toLowerCase().includes('solution') || 
-                                             aiResponse.toLowerCase().includes('customer'));
-            
-            const hasJsonAndCustomer = aiResponse.toLowerCase().includes('json') && 
-                                     aiResponse.toLowerCase().includes('customer') && 
-                                     aiResponse.toLowerCase().includes('problem');
-            
-            const hasThankYouAnswers = aiResponse.toLowerCase().includes('thank you') && 
-                                     aiResponse.toLowerCase().includes('answers');
-            
-            if (containsEndTrigger || hasUniqueAndThirdQuestion || hasJsonAndCustomer || hasThankYouAnswers) {
-                console.log('🎯 WYKRYTO ZAKOŃCZENIE ROZMOWY - PRZEKIEROWANIE DO LOADING');
-                setTimeout(() => {
-                    window.location.href = 'loading.html?message=' + encodeURIComponent(messageText) + '&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
-                }, 2000);
-            }
+            // Dodaj przycisk do generowania prezentacji po każdej odpowiedzi AI
+            setTimeout(() => {
+                addPresentationButton();
+            }, 500);
         } else {
             displaySystemMessage('Nie udało się odczytać odpowiedzi.');
         }
