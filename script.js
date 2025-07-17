@@ -173,41 +173,48 @@ function extractAIResponse(data) {
 function checkForConversationEnd(text) {
     console.log('🔍 Sprawdzam tekst pod kątem zakończenia rozmowy:', text);
     
-    // Bardzo precyzyjne triggery - tylko finalne odpowiedzi po wszystkich 3 pytaniach
+    // BARDZO PRECYZYJNE TRIGGERY - tylko faktyczne zakończenie po wszystkich 3 pytaniach
     const finalEndTriggers = [
-        'Thanks! You\'ve completed all questions',
-        'We\'ll use your answers to generate the pitch',
-        'Here\'s a summary of your answers',
-        'Now, here\'s the JSON object',
-        'json_result',
-        'Here\'s the output',
-        'I\'ll prepare your final output',
-        'structured format for you'
+        'Thanks! You\'ve completed all questions. We\'ll use your answers to generate the pitch',
+        'Now I\'ll prepare your final output',
+        'Here\'s the output:',
+        'Here\'s the summary:',
+        'I\'ve compiled everything into a structured format for you',
+        'Thanks for sharing your ideas! I\'ve compiled everything',
+        'Thanks for providing the information! I\'ll compile it into a structured format'
     ];
     
-    // DODATOWE SPRAWDZENIE: czy tekst zawiera również JSON lub wszystkie 3 elementy (customer, problem, unique)
-    const hasJsonStructure = text.includes('customer') && text.includes('problem') && text.includes('unique');
-    const hasCompletionPhrase = finalEndTriggers.find(trigger => 
-        text.toLowerCase().includes(trigger.toLowerCase())
+    // DODATOWE SPRAWDZENIE: czy tekst zawiera JSON z wszystkimi 3 kluczami
+    const hasCompleteJson = text.includes('customer') && 
+                           text.includes('problem') && 
+                           text.includes('unique') &&
+                           text.includes('json_result');
+    
+    // DŁUGOŚĆ SPRAWDZENIE: finalna odpowiedź powinna być długa (zawiera podsumowanie)
+    const isLongResponse = text.length > 300;
+    
+    // SPRAWDZENIE SŁÓW KOŃCOWYCH: czy zawiera strukturę JSON
+    const hasJsonStructure = text.includes('```json') || text.includes('json_result');
+    
+    const foundTrigger = finalEndTriggers.find(trigger => 
+        text.includes(trigger)
     );
     
-    if (hasCompletionPhrase && hasJsonStructure) {
-        console.log('✅ ZNALEZIONO PEŁNE ZAKOŃCZENIE z JSON:', hasCompletionPhrase);
+    if (foundTrigger && hasCompleteJson && isLongResponse && hasJsonStructure) {
+        console.log('✅ ZNALEZIONO KOMPLETNY TRIGGER ZAKOŃCZENIA:');
+        console.log('   - Trigger:', foundTrigger);
+        console.log('   - Ma kompletny JSON:', hasCompleteJson);
+        console.log('   - Jest długa odpowiedź:', isLongResponse);
+        console.log('   - Ma strukturę JSON:', hasJsonStructure);
         conversationComplete = true;
         return true;
-    } else if (hasCompletionPhrase) {
-        console.log('⚠️ Znaleziono frazę zakończenia ale brak JSON struktury:', hasCompletionPhrase);
-        console.log('🔍 Sprawdzam czy to faktyczne zakończenie...');
-        
-        // Dodatkowe sprawdzenie - czy to jest rzeczywiście finalna odpowiedź
-        if (text.length > 200 && (text.includes('summary') || text.includes('final') || text.includes('pitch'))) {
-            console.log('✅ POTWIERDZONO ZAKOŃCZENIE - długa odpowiedź z finalną frazą');
-            conversationComplete = true;
-            return true;
-        }
     }
     
-    console.log('❌ Nie znaleziono triggera zakończenia lub to nie jest finalna odpowiedź');
+    if (foundTrigger) {
+        console.log('⚠️ Znaleziono trigger ale brak warunków dodatkowych:', foundTrigger);
+    }
+    
+    console.log('❌ Nie znaleziono kompletnego triggera zakończenia');
     return false;
 }
 
@@ -303,23 +310,26 @@ async function handleSendMessage() {
             
             // BARDZO PROSTSZE SPRAWDZENIE - szukaj konkretnej frazy TYLKO po zakończeniu wszystkich 3 pytań
             const simpleTriggers = [
-                'Thanks! You\'ve completed all questions',
-                'We\'ll use your answers to generate the pitch',
-                'Here\'s a summary of your answers',
-                'Now, here\'s the JSON object',
-                'json_result',
-                'Here\'s the output',
-                'I\'ll prepare your final output',
-                'Now, I\'ll prepare your final output',
-                'Here\'s the summary:',
-                'structured format for you'
+                'Thanks! You\'ve completed all questions. We\'ll use your answers to generate the pitch',
+                'Now I\'ll prepare your final output',
+                'I\'ve compiled everything into a structured format for you',
+                'Thanks for sharing your ideas! I\'ve compiled everything',
+                'Thanks for providing the information! I\'ll compile it into a structured format'
             ];
+            
+            // DODATOWE WARUNKI BEZPIECZEŃSTWA
+            const hasJsonResult = aiResponse.includes('json_result');
+            const hasAllThreeKeys = aiResponse.includes('customer') && 
+                                   aiResponse.includes('problem') && 
+                                   aiResponse.includes('unique');
+            const isVeryLongResponse = aiResponse.length > 400; // Jeszcze dłuższa odpowiedź
             
             const foundSimpleTrigger = simpleTriggers.find(trigger => 
                 aiResponse.includes(trigger)
             );
             
-            if (foundSimpleTrigger) {
+            // TYLKO jeśli wszystkie warunki są spełnione
+            if (foundSimpleTrigger && hasJsonResult && hasAllThreeKeys && isVeryLongResponse) {
                 console.log('🚀 ZNALEZIONO PROSTĘ FRAZĘ - PRZEKIEROWANIE!', foundSimpleTrigger);
                 setTimeout(() => {
                     const redirectUrl = 'loading.html?message=' + encodeURIComponent(messageText) + 
