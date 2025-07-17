@@ -280,8 +280,20 @@ async function handleSendMessage() {
         const aiResponse = extractAIResponse(data);
         
         if (aiResponse) {
-            // Wyświetlenie odpowiedzi AI
-            displayAIMessage(aiResponse);
+            // SPRAWDŹ CZY TO FINALNA ODPOWIEDŹ Z JSON
+            const isFinalizingResponse = aiResponse.includes('Thanks for your answers!') || 
+                                       aiResponse.includes('Thanks! You\'ve completed all questions') ||
+                                       aiResponse.includes('json_result');
+            
+            let displayMessage = aiResponse;
+            
+            // Jeśli to finalna odpowiedź, pokazuj tylko krótką wiadomość
+            if (isFinalizingResponse) {
+                displayMessage = "Thanks for your answers! 🎉\n\nPrzygotowuję prezentację na podstawie Twojego pomysłu...";
+            }
+            
+            // Wyświetlenie odpowiedzi AI (krótka lub pełna)
+            displayAIMessage(displayMessage);
             
             console.log('🔍 SPRAWDZANIE PEŁNEJ ODPOWIEDZI AI:', aiResponse);
             
@@ -298,13 +310,12 @@ async function handleSendMessage() {
             
             if (foundSimpleTrigger) {
                 console.log('🚀 ZNALEZIONO PROSTĘ FRAZĘ - PRZEKIEROWANIE!', foundSimpleTrigger);
-                alert('Rozmowa zakończona! Przekierowanie do prezentacji...');
                 setTimeout(() => {
                     const redirectUrl = 'loading.html?message=' + encodeURIComponent(messageText) + 
                                       '&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
                     console.log('🔗 Przekierowuję do:', redirectUrl);
                     window.location.href = redirectUrl;
-                }, 500);
+                }, 2000); // Daj użytkownikowi więcej czasu przeczytać krótką wiadomość
                 return;
             }
             
