@@ -24,6 +24,7 @@ const connectionStatus = document.getElementById('connection-status');
 
 // === PRZECHOWYWANIE WIADOMOŚCI ===
 let messages = [];
+let conversationComplete = false; // Flaga do śledzenia zakończenia rozmowy
 
 // === INICJALIZACJA ===
 document.addEventListener('DOMContentLoaded', function() {
@@ -70,12 +71,14 @@ function extractAIResponse(data) {
     // WCZESNE RETURN - Przypadek 1: Standardowa struktura {reply: "text"}
     if (data && typeof data === 'object' && data.reply && typeof data.reply === 'string') {
         console.log('✅ Znaleziono data.reply:', data.reply);
+        checkForConversationEnd(data.reply);
         return data.reply; // ZATRZYMAJ TUTAJ - nie sprawdzaj nic więcej!
     }
     
     // WCZESNE RETURN - Przypadek 2: Alternatywna struktura {message: "text"}
     if (data && typeof data === 'object' && data.message && typeof data.message === 'string') {
         console.log('✅ Znaleziono data.message:', data.message);
+        checkForConversationEnd(data.message);
         return data.message; // ZATRZYMAJ TUTAJ
     }
     
@@ -89,10 +92,12 @@ function extractAIResponse(data) {
                 return extractAIResponse(parsed); // Rekurencyjnie analizuj sparsowany obiekt
             } catch (e) {
                 console.log('⚠️ Nie udało się sparsować JSON, używam jako zwykły tekst');
+                checkForConversationEnd(data);
                 return data;
             }
         } else {
             console.log('✅ Odpowiedź jako zwykły tekst:', data);
+            checkForConversationEnd(data);
             return data;
         }
     }
@@ -113,6 +118,7 @@ function extractAIResponse(data) {
                         // Sprawdź czy to nie jest techniczny klucz
                         if (!key.includes('id') && !key.includes('code') && !key.includes('status')) {
                             console.log(`✅ Znaleziono tekst w zagnieżdżonym kluczu "${key}":`, value);
+                            checkForConversationEnd(value);
                             return value;
                         }
                     }
@@ -138,12 +144,36 @@ function extractAIResponse(data) {
         const firstKey = Object.keys(data)[0];
         if (firstKey && typeof firstKey === 'string' && firstKey.length > 20) {
             console.log('⚠️ FALLBACK: Używam pierwszego klucza jako odpowiedź:', firstKey);
+            checkForConversationEnd(firstKey);
             return firstKey;
         }
     }
     
     console.log('❌ Nie udało się wydobyć odpowiedzi AI');
     return null;
+}
+
+// === FUNKCJA DO SPRAWDZANIA ZAKOŃCZENIA ROZMOWY ===
+function checkForConversationEnd(text) {
+    if (!text || conversationComplete) return;
+    
+    const endTriggers = [
+        'completed all questions',
+        'Thanks! You\'ve completed',
+        'Here\'s the summary',
+        'json_result',
+        'We\'ll use your answers to generate',
+        'Thank you for your response! Your solution is unique'
+    ];
+    
+    const hasEndTrigger = endTriggers.some(trigger => 
+        text.toLowerCase().includes(trigger.toLowerCase())
+    );
+    
+    if (hasEndTrigger) {
+        console.log('🎯 WYKRYTO ZAKOŃCZENIE ROZMOWY W TEKŚCIE:', text.substring(0, 100) + '...');
+        conversationComplete = true;
+    }
 }
 
 // === GŁÓWNA FUNKCJA WYSYŁANIA WIADOMOŚCI ===
@@ -222,20 +252,45 @@ async function handleSendMessage() {
             // Wyświetlenie odpowiedzi AI
             displayAIMessage(aiResponse);
             
+            console.log('🔍 Sprawdzam odpowiedź AI pod kątem zakończenia:', aiResponse);
+            
             // Sprawdź czy odpowiedź zawiera informację o zakończeniu rozmowy
-            if (aiResponse.includes('podsumowanie') || 
-                aiResponse.includes('summary') || 
-                aiResponse.includes('json_result') ||
-                aiResponse.includes('JSON object') ||
-                aiResponse.includes('We\'ll use your answers') ||
-                aiResponse.includes('generate the pitch') ||
-                aiResponse.includes('completed all questions') ||
-                aiResponse.includes('Here\'s the output') ||
-                aiResponse.includes('Here\'s the summary') ||
-                (aiResponse.includes('unique') && aiResponse.includes('solution') && aiResponse.includes('customer')) ||
-                (aiResponse.includes('JSON') && aiResponse.includes('customer') && aiResponse.includes('problem')) ||
-                (aiResponse.includes('Thank you') && aiResponse.includes('answers'))) {
-                
+            const endTriggers = [
+                'podsumowanie',
+                'summary',
+                'json_result',
+                'JSON object',
+                'We\'ll use your answers',
+                'generate the pitch',
+                'completed all questions',
+                'Here\'s the output',
+                'Here\'s the summary',
+                'Thanks! You\'ve completed',
+                'Thank you for your response! Your solution is unique',
+                'Here\'s a summary of your answers',
+                'Now, here\'s the JSON object'
+            ];
+            
+            const containsEndTrigger = endTriggers.some(trigger => 
+                aiResponse.toLowerCase().includes(trigger.toLowerCase())
+            );
+            
+            const hasCompleteStructure = (
+                aiResponse.includes('unique') && 
+                aiResponse.includes('solution') && 
+                aiResponse.includes('customer')
+            ) || (
+                aiResponse.includes('JSON') && 
+                aiResponse.includes('customer') && 
+                aiResponse.includes('problem')
+            ) || (
+                aiResponse.includes('Thank you') && 
+                aiResponse.includes('answers')
+            );
+            
+            console.log('🔍 Wykryte triggery:', { containsEndTrigger, hasCompleteStructure, conversationComplete });
+            
+            if (containsEndTrigger || hasCompleteStructure || conversationComplete) {
                 console.log('🔄 Wykryto zakończenie rozmowy, przekierowuję do strony ładowania...');
                 displaySystemMessage('Przygotowuję prezentację na podstawie Twojego pomysłu...');
                 
