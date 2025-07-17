@@ -28,6 +28,32 @@ let conversationComplete = false; // Flaga do śledzenia zakończenia rozmowy
 
 // === INICJALIZACJA ===
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('📱 Aplikacja chat AI została zainicjalizowana');
+    
+    // Dodaj przycisk testowy do przekierowania
+    const testButton = document.createElement('button');
+    testButton.textContent = 'TEST: Idź do Loading';
+    testButton.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 9999; background: red; color: white; padding: 10px; border: none; cursor: pointer; border-radius: 5px;';
+    testButton.onclick = function() {
+        console.log('🧪 TEST: Przekierowanie do loading.html');
+        window.location.href = 'loading.html?message=test&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
+    };
+    document.body.appendChild(testButton);
+    
+    updateConnectionStatus('🔌 Łączenie z serwerem...', 'connecting');
+    
+    // Sprawdzenie połączenia z serwerem
+    checkServerConnection();
+    
+    // Ustawienie event listenerów
+    messageInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            handleSendMessage();
+        }
+    });
+    
+    sendButton.addEventListener('click', handleSendMessage);
+    
     // Ustawienie fokusu na pole wprowadzania
     messageInput.focus();
     
@@ -257,7 +283,30 @@ async function handleSendMessage() {
             // Wyświetlenie odpowiedzi AI
             displayAIMessage(aiResponse);
             
-            console.log('🔍 Sprawdzam odpowiedź AI pod kątem zakończenia:', aiResponse);
+            console.log('🔍 SPRAWDZANIE PEŁNEJ ODPOWIEDZI AI:', aiResponse);
+            
+            // BARDZO PROSTSZE SPRAWDZENIE - szukaj konkretnej frazy
+            const simpleTriggers = [
+                'Thank you for your answers!',
+                'Thanks! You\'ve completed all questions',
+                'We\'ll use your answers to generate the pitch'
+            ];
+            
+            const foundSimpleTrigger = simpleTriggers.find(trigger => 
+                aiResponse.includes(trigger)
+            );
+            
+            if (foundSimpleTrigger) {
+                console.log('🚀 ZNALEZIONO PROSTĘ FRAZĘ - PRZEKIEROWANIE!', foundSimpleTrigger);
+                alert('Rozmowa zakończona! Przekierowanie do prezentacji...');
+                setTimeout(() => {
+                    const redirectUrl = 'loading.html?message=' + encodeURIComponent(messageText) + 
+                                      '&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
+                    console.log('🔗 Przekierowuję do:', redirectUrl);
+                    window.location.href = redirectUrl;
+                }, 500);
+                return;
+            }
             
             // NATYCHMIASTOWE SPRAWDZENIE ZAKOŃCZENIA
             if (checkForConversationEnd(aiResponse) || conversationComplete) {
