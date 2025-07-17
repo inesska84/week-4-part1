@@ -30,19 +30,9 @@ let conversationComplete = false; // Flaga do śledzenia zakończenia rozmowy
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📱 Aplikacja chat AI została zainicjalizowana');
     
-    // Dodaj przycisk testowy do przekierowania
-    const testButton = document.createElement('button');
-    testButton.textContent = 'TEST: Idź do Loading';
-    testButton.style.cssText = 'position: fixed; top: 10px; right: 10px; z-index: 9999; background: red; color: white; padding: 10px; border: none; cursor: pointer; border-radius: 5px;';
-    testButton.onclick = function() {
-        console.log('🧪 TEST: Przekierowanie do loading.html');
-        window.location.href = 'loading.html?message=test&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
-    };
-    document.body.appendChild(testButton);
-    
     updateConnectionStatus('🔌 Łączenie z serwerem...', 'connecting');
     
-    // Sprawdzenie połączenia z serwerem
+    // Sprawdzenie czy serwer jest dostępny
     checkServerConnection();
     
     // Ustawienie event listenerów
@@ -183,27 +173,41 @@ function extractAIResponse(data) {
 function checkForConversationEnd(text) {
     console.log('🔍 Sprawdzam tekst pod kątem zakończenia rozmowy:', text);
     
-    // Prostsze triggery
-    const simpleEndTriggers = [
-        'Thank you for your answers',
+    // Bardzo precyzyjne triggery - tylko finalne odpowiedzi po wszystkich 3 pytaniach
+    const finalEndTriggers = [
         'Thanks! You\'ve completed all questions',
         'We\'ll use your answers to generate the pitch',
+        'Here\'s a summary of your answers',
+        'Now, here\'s the JSON object',
         'json_result',
-        'Here\'s the summary',
-        'podsumowanie'
+        'Here\'s the output',
+        'I\'ll prepare your final output',
+        'structured format for you'
     ];
     
-    const foundTrigger = simpleEndTriggers.find(trigger => 
+    // DODATOWE SPRAWDZENIE: czy tekst zawiera również JSON lub wszystkie 3 elementy (customer, problem, unique)
+    const hasJsonStructure = text.includes('customer') && text.includes('problem') && text.includes('unique');
+    const hasCompletionPhrase = finalEndTriggers.find(trigger => 
         text.toLowerCase().includes(trigger.toLowerCase())
     );
     
-    if (foundTrigger) {
-        console.log('✅ ZNALEZIONO TRIGGER ZAKOŃCZENIA:', foundTrigger);
+    if (hasCompletionPhrase && hasJsonStructure) {
+        console.log('✅ ZNALEZIONO PEŁNE ZAKOŃCZENIE z JSON:', hasCompletionPhrase);
         conversationComplete = true;
         return true;
+    } else if (hasCompletionPhrase) {
+        console.log('⚠️ Znaleziono frazę zakończenia ale brak JSON struktury:', hasCompletionPhrase);
+        console.log('🔍 Sprawdzam czy to faktyczne zakończenie...');
+        
+        // Dodatkowe sprawdzenie - czy to jest rzeczywiście finalna odpowiedź
+        if (text.length > 200 && (text.includes('summary') || text.includes('final') || text.includes('pitch'))) {
+            console.log('✅ POTWIERDZONO ZAKOŃCZENIE - długa odpowiedź z finalną frazą');
+            conversationComplete = true;
+            return true;
+        }
     }
     
-    console.log('❌ Nie znaleziono triggerów zakończenia');
+    console.log('❌ Nie znaleziono triggera zakończenia lub to nie jest finalna odpowiedź');
     return false;
 }
 
@@ -295,13 +299,20 @@ async function handleSendMessage() {
             // Wyświetlenie odpowiedzi AI (krótka lub pełna)
             displayAIMessage(displayMessage);
             
-            console.log('🔍 SPRAWDZANIE PEŁNEJ ODPOWIEDZI AI:', aiResponse);
+            console.log('�� SPRAWDZANIE PEŁNEJ ODPOWIEDZI AI:', aiResponse);
             
-            // BARDZO PROSTSZE SPRAWDZENIE - szukaj konkretnej frazy
+            // BARDZO PROSTSZE SPRAWDZENIE - szukaj konkretnej frazy TYLKO po zakończeniu wszystkich 3 pytań
             const simpleTriggers = [
-                'Thank you for your answers!',
                 'Thanks! You\'ve completed all questions',
-                'We\'ll use your answers to generate the pitch'
+                'We\'ll use your answers to generate the pitch',
+                'Here\'s a summary of your answers',
+                'Now, here\'s the JSON object',
+                'json_result',
+                'Here\'s the output',
+                'I\'ll prepare your final output',
+                'Now, I\'ll prepare your final output',
+                'Here\'s the summary:',
+                'structured format for you'
             ];
             
             const foundSimpleTrigger = simpleTriggers.find(trigger => 
