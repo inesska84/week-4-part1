@@ -228,7 +228,13 @@ async function handleSendMessage() {
                 aiResponse.includes('json_result') ||
                 aiResponse.includes('JSON object') ||
                 aiResponse.includes('We\'ll use your answers') ||
-                aiResponse.includes('generate the pitch')) {
+                aiResponse.includes('generate the pitch') ||
+                aiResponse.includes('completed all questions') ||
+                aiResponse.includes('Here\'s the output') ||
+                aiResponse.includes('Here\'s the summary') ||
+                (aiResponse.includes('unique') && aiResponse.includes('solution') && aiResponse.includes('customer')) ||
+                (aiResponse.includes('JSON') && aiResponse.includes('customer') && aiResponse.includes('problem')) ||
+                (aiResponse.includes('Thank you') && aiResponse.includes('answers'))) {
                 
                 console.log('🔄 Wykryto zakończenie rozmowy, przekierowuję do strony ładowania...');
                 displaySystemMessage('Przygotowuję prezentację na podstawie Twojego pomysłu...');
