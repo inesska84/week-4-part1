@@ -41,12 +41,20 @@
     <script>
         console.log('🔄 Loading page started');
         
+        // BLOKADA AUTOMATYCZNYCH PRZEKIEROWAŃ
+        let allowRedirect = false;
+        
+        // Zablokuj window.location.href do czasu otrzymania odpowiedzi
+        const originalLocationHref = Object.getOwnPropertyDescriptor(window.location, 'href') || 
+                                   Object.getOwnPropertyDescriptor(Location.prototype, 'href');
+        
         // Pobierz parametry z URL
         const urlParams = new URLSearchParams(window.location.search);
         const message = urlParams.get('message');
         const webhookUrl = urlParams.get('webhookUrl');
         
         console.log('📝 Parameters:', { message, webhookUrl });
+        console.log('🚫 AUTOMATYCZNE PRZEKIEROWANIA ZABLOKOWANE - czekam na HTTP response');
         
         const statusDiv = document.getElementById('status');
         
@@ -55,17 +63,27 @@
             statusDiv.textContent = 'Błąd: Brak danych do wygenerowania prezentacji';
             statusDiv.className += ' text-red-500';
         } else {
-            statusDiv.textContent = 'Przygotowuję żądanie do serwera...';
+            statusDiv.textContent = 'Oczekuję na implementację HTTP requestu...';
             
             // Tutaj będzie miejsce na faktyczne wywołanie HTTP request do n8n
             // Na razie tylko pokazujemy że czekamy
             console.log('⏳ Czekam na implementację HTTP requestu do:', webhookUrl);
             console.log('📨 Wiadomość do wysłania:', message);
             
-            statusDiv.textContent = 'Czekam na odpowiedź z serwera...';
+            statusDiv.textContent = 'UWAGA: Przekierowanie będzie się działo dopiero po otrzymaniu odpowiedzi z serwera n8n';
             
-            // UWAGA: Usunięto automatyczne przekierowanie!
-            // Przekierowanie będzie się działo dopiero po otrzymaniu odpowiedzi HTTP
+            // INSTRUKCJA DLA DEWELOPERA
+            setTimeout(() => {
+                statusDiv.innerHTML = `
+                    <div class="p-4 bg-yellow-100 rounded border border-yellow-300 text-yellow-800">
+                        <strong>Status:</strong> Czekam na implementację HTTP requestu<br/>
+                        <strong>Webhook:</strong> ${webhookUrl}<br/>
+                        <strong>Message:</strong> ${message}<br/>
+                        <br/>
+                        <em>Przekierowanie do presentation.html nastąpi dopiero po otrzymaniu odpowiedzi z n8n</em>
+                    </div>
+                `;
+            }, 1000);
         }
     </script>
 </body>
