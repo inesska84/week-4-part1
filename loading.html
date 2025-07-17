@@ -21,110 +21,52 @@
             animation: fadeIn 0.8s;
         }
         @keyframes fadeIn {
-            from {opacity: 0;}
-            to {opacity: 1;}
+            from {opacity: 0; transform: translateY(20px);}
+            to {opacity: 1; transform: translateY(0);}
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-blue-500 to-purple-600 h-screen flex items-center justify-center">
-    <div class="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4 fade-in">
-        <h1 class="text-center text-2xl font-bold mb-4">Generowanie Twojej prezentacji...</h1>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen flex items-center justify-center">
+    <div class="text-center fade-in">
+        <div class="loading-spinner mx-auto mb-6"></div>
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">Generuję prezentację...</h1>
+        <p class="text-gray-600">Proszę czekać, tworzę prezentację na podstawie Twojego pomysłu</p>
         
-        <div class="flex justify-center my-8">
-            <div class="loading-spinner"></div>
-        </div>
-        
-        <p class="text-center text-gray-600 mb-8" id="status-message">Proszę czekać, trwa przetwarzanie Twojego pomysłu...</p>
-        
-        <div class="progress bg-gray-200 rounded-full h-2 mb-6">
-            <div id="progress-bar" class="bg-blue-600 rounded-full h-2 w-0 transition-all duration-300"></div>
-        </div>
-        
-        <div class="text-center">
-            <button id="cancel-button" class="px-6 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-gray-700 transition-all">
-                Wstecz
-            </button>
+        <!-- Status info -->
+        <div id="status" class="mt-6 text-sm text-gray-500">
+            Ładowanie danych...
         </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Pobierz parametry z URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const messageData = urlParams.get('message');
-            const webhookUrl = urlParams.get('webhookUrl') || 'https://anna2084.app.n8n.cloud/webhook-test/1221a370-32ad-4fd0-92d2-1a930407c2aa';
+        console.log('🔄 Loading page started');
+        
+        // Pobierz parametry z URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const message = urlParams.get('message');
+        const webhookUrl = urlParams.get('webhookUrl');
+        
+        console.log('📝 Parameters:', { message, webhookUrl });
+        
+        const statusDiv = document.getElementById('status');
+        
+        if (!message || !webhookUrl) {
+            console.error('❌ Brak wymaganych parametrów');
+            statusDiv.textContent = 'Błąd: Brak danych do wygenerowania prezentacji';
+            statusDiv.className += ' text-red-500';
+        } else {
+            statusDiv.textContent = 'Przygotowuję żądanie do serwera...';
             
-            // Element statusu
-            const statusMessage = document.getElementById('status-message');
-            const progressBar = document.getElementById('progress-bar');
+            // Tutaj będzie miejsce na faktyczne wywołanie HTTP request do n8n
+            // Na razie tylko pokazujemy że czekamy
+            console.log('⏳ Czekam na implementację HTTP requestu do:', webhookUrl);
+            console.log('📨 Wiadomość do wysłania:', message);
             
-            // Funkcja do aktualizacji paska postępu
-            function updateProgress(percent) {
-                progressBar.style.width = percent + '%';
-            }
+            statusDiv.textContent = 'Czekam na odpowiedź z serwera...';
             
-            // Funkcja do pobierania danych z n8n
-            async function fetchDataFromN8n() {
-                try {
-                    // Określ, czy używamy proxy CORS
-                    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                    const apiUrl = isLocalhost ? 'http://localhost:3001' : webhookUrl;
-                    
-                    updateProgress(30);
-                    statusMessage.textContent = "Łączenie z serwerem...";
-                    
-                    // Wysyłanie żądania do n8n
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            message: messageData || 'generate_presentation'
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`Błąd HTTP: ${response.status}`);
-                    }
-                    
-                    updateProgress(60);
-                    statusMessage.textContent = "Otrzymano dane, przygotowanie prezentacji...";
-                    
-                    // Przetwarzanie odpowiedzi
-                    const data = await response.json();
-                    console.log('Otrzymane dane:', data);
-                    
-                    updateProgress(90);
-                    statusMessage.textContent = "Prezentacja gotowa!";
-                    
-                    // Przekierowanie do strony prezentacji z danymi
-                    setTimeout(() => {
-                        // Przekazujemy dane do presentation.html
-                        window.location.href = 'presentation.html?data=' + encodeURIComponent(JSON.stringify(data));
-                    }, 1000);
-                    
-                } catch (error) {
-                    console.error('Błąd podczas pobierania danych:', error);
-                    statusMessage.textContent = "Wystąpił błąd. Przekierowuję do prezentacji...";
-                    updateProgress(100);
-                    
-                    // W przypadku błędu, przekieruj do prezentacji bez danych
-                    setTimeout(() => {
-                        window.location.href = 'presentation.html';
-                    }, 1000);
-                }
-            }
-            
-            // Rozpocznij pobieranie danych
-            updateProgress(10);
-            fetchDataFromN8n();
-            
-            // Obsługa przycisku anulowania
-            document.getElementById('cancel-button').addEventListener('click', function() {
-                window.location.href = 'index.html';
-            });
-        });
+            // UWAGA: Usunięto automatyczne przekierowanie!
+            // Przekierowanie będzie się działo dopiero po otrzymaniu odpowiedzi HTTP
+        }
     </script>
 </body>
 </html> 
