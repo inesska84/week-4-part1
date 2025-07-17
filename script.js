@@ -153,27 +153,32 @@ function extractAIResponse(data) {
     return null;
 }
 
-// === FUNKCJA DO SPRAWDZANIA ZAKOŃCZENIA ROZMOWY ===
+// === FUNKCJA SPRAWDZANIA ZAKOŃCZENIA ROZMOWY ===
 function checkForConversationEnd(text) {
-    if (!text || conversationComplete) return;
+    console.log('🔍 Sprawdzam tekst pod kątem zakończenia rozmowy:', text);
     
-    const endTriggers = [
-        'completed all questions',
-        'Thanks! You\'ve completed',
-        'Here\'s the summary',
+    // Prostsze triggery
+    const simpleEndTriggers = [
+        'Thank you for your answers',
+        'Thanks! You\'ve completed all questions',
+        'We\'ll use your answers to generate the pitch',
         'json_result',
-        'We\'ll use your answers to generate',
-        'Thank you for your response! Your solution is unique'
+        'Here\'s the summary',
+        'podsumowanie'
     ];
     
-    const hasEndTrigger = endTriggers.some(trigger => 
+    const foundTrigger = simpleEndTriggers.find(trigger => 
         text.toLowerCase().includes(trigger.toLowerCase())
     );
     
-    if (hasEndTrigger) {
-        console.log('🎯 WYKRYTO ZAKOŃCZENIE ROZMOWY W TEKŚCIE:', text.substring(0, 100) + '...');
+    if (foundTrigger) {
+        console.log('✅ ZNALEZIONO TRIGGER ZAKOŃCZENIA:', foundTrigger);
         conversationComplete = true;
+        return true;
     }
+    
+    console.log('❌ Nie znaleziono triggerów zakończenia');
+    return false;
 }
 
 // === GŁÓWNA FUNKCJA WYSYŁANIA WIADOMOŚCI ===
@@ -254,7 +259,19 @@ async function handleSendMessage() {
             
             console.log('🔍 Sprawdzam odpowiedź AI pod kątem zakończenia:', aiResponse);
             
-            // Sprawdź czy odpowiedź zawiera informację o zakończeniu rozmowy
+            // NATYCHMIASTOWE SPRAWDZENIE ZAKOŃCZENIA
+            if (checkForConversationEnd(aiResponse) || conversationComplete) {
+                console.log('🚀 PRZEKIEROWANIE DO LOADING - ROZMOWA ZAKOŃCZONA!');
+                setTimeout(() => {
+                    const redirectUrl = 'loading.html?message=' + encodeURIComponent(messageText) + 
+                                      '&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
+                    console.log('🔗 Przekierowuję do:', redirectUrl);
+                    window.location.href = redirectUrl;
+                }, 1000); // Daj użytkownikowi czas przeczytać odpowiedź
+                return; // Zatrzymaj dalsze przetwarzanie
+            }
+            
+            // Sprawdź czy odpowiedź zawiera informację o zakończeniu rozmowy (stary kod)
             const endTriggers = [
                 'podsumowanie',
                 'summary',
@@ -275,26 +292,19 @@ async function handleSendMessage() {
                 aiResponse.toLowerCase().includes(trigger.toLowerCase())
             );
             
-            const hasCompleteStructure = (
-                aiResponse.includes('unique') && 
-                aiResponse.includes('solution') && 
-                aiResponse.includes('customer')
-            ) || (
-                aiResponse.includes('JSON') && 
-                aiResponse.includes('customer') && 
-                aiResponse.includes('problem')
-            ) || (
-                aiResponse.includes('Thank you') && 
-                aiResponse.includes('answers')
-            );
+            const hasUniqueAndThirdQuestion = aiResponse.toLowerCase().includes('unique') && 
+                                            (aiResponse.toLowerCase().includes('solution') || 
+                                             aiResponse.toLowerCase().includes('customer'));
             
-            console.log('🔍 Wykryte triggery:', { containsEndTrigger, hasCompleteStructure, conversationComplete });
+            const hasJsonAndCustomer = aiResponse.toLowerCase().includes('json') && 
+                                     aiResponse.toLowerCase().includes('customer') && 
+                                     aiResponse.toLowerCase().includes('problem');
             
-            if (containsEndTrigger || hasCompleteStructure || conversationComplete) {
-                console.log('🔄 Wykryto zakończenie rozmowy, przekierowuję do strony ładowania...');
-                displaySystemMessage('Przygotowuję prezentację na podstawie Twojego pomysłu...');
-                
-                // Automatyczne przekierowanie do strony ładowania po podsumowaniu
+            const hasThankYouAnswers = aiResponse.toLowerCase().includes('thank you') && 
+                                     aiResponse.toLowerCase().includes('answers');
+            
+            if (containsEndTrigger || hasUniqueAndThirdQuestion || hasJsonAndCustomer || hasThankYouAnswers) {
+                console.log('🎯 WYKRYTO ZAKOŃCZENIE ROZMOWY - PRZEKIEROWANIE DO LOADING');
                 setTimeout(() => {
                     window.location.href = 'loading.html?message=' + encodeURIComponent(messageText) + '&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
                 }, 2000);
