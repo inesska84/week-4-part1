@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Test - n8n webhook</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .result { padding: 20px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test CORS dla n8n webhook</h1>
+    
+    <button onclick="testDirectN8N()">🔥 Test BEZPOŚREDNIEGO połączenia z n8n</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const N8N_WEBHOOK_URL = 'https://anna2084.app.n8n.cloud/webhook/1221a370-32ad-4fd0-92d2-1a930407c2aa';
+        
+        function addResult(message, isSuccess = false) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `result ${isSuccess ? 'success' : 'error'}`;
+            resultDiv.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        async function testDirectN8N() {
+            addResult('🚀 Rozpoczynam test bezpośredniego połączenia z n8n...');
+            
+            try {
+                const response = await fetch(N8N_WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        message: 'test cors from browser'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.text();
+                    addResult(`✅ SUKCES! n8n odpowiedział bez CORS proxy. Status: ${response.status}`, true);
+                    addResult(`📄 Odpowiedź: ${data}`, true);
+                } else {
+                    addResult(`⚠️ n8n odpowiedział ale z błędem. Status: ${response.status}`);
+                }
+                
+            } catch (error) {
+                if (error.name === 'TypeError' && error.message.includes('CORS')) {
+                    addResult(`❌ BŁĄD CORS: ${error.message}`);
+                    addResult(`💡 Potrzebujemy CORS proxy lub Vercel Function`);
+                } else {
+                    addResult(`❌ Inny błąd: ${error.message}`);
+                }
+            }
+        }
+    </script>
+</body>
+</html> 
