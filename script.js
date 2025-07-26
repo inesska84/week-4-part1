@@ -5,16 +5,14 @@ const ORIGINAL_N8N_WEBHOOK_URL = 'https://anna2084.app.n8n.cloud/webhook/1221a37
 // Automatyczne wykrycie środowiska (lokalne vs produkcja)
 const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-// CORS proxy dla produkcji (rozwiązuje problemy z CORS w n8n)
-const CORS_PROXY_URL = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
+// URL endpoints dla różnych środowisk
+const LOCAL_CORS_PROXY_URL = 'http://localhost:3001';
+const VERCEL_FUNCTION_URL = '/api/cors-proxy';
 
 // URL do użycia w zależności od środowiska
 let N8N_WEBHOOK_URL = IS_LOCAL 
-    ? 'http://localhost:3001'  // Lokalnie używaj lokalny proxy
-    : ORIGINAL_N8N_WEBHOOK_URL; // Produkcyjnie spróbuj bezpośrednio n8n
-
-// Flaga dla CORS fallback w produkcji
-let USE_CORS_PROXY = false;
+    ? LOCAL_CORS_PROXY_URL      // Lokalnie używaj lokalny proxy
+    : VERCEL_FUNCTION_URL;      // Na Vercel używaj Vercel Function
 
 // === REFERENCJE DO ELEMENTÓW DOM ===
 const messagesContainer = document.getElementById('messages-container');
@@ -169,9 +167,8 @@ document.addEventListener('DOMContentLoaded', function() {
     updateConnectionStatus(statusMessage, 'default');
     
     // Log diagnostyczny
-    console.log('🏗️ Środowisko:', IS_LOCAL ? 'LOKALNE' : 'PRODUKCJA');
+    console.log('🏗️ Środowisko:', IS_LOCAL ? 'LOKALNE' : 'VERCEL');
     console.log('🎯 Webhook URL:', N8N_WEBHOOK_URL);
-    console.log('🔄 CORS Proxy URL:', CORS_PROXY_URL);
 });
 
 // === GŁÓWNA FUNKCJA WYSYŁANIA WIADOMOŚCI ===
@@ -194,49 +191,22 @@ async function handleSendMessage() {
         setLoadingState(true);
         updateConnectionStatus('📤 Wysyłanie wiadomości...', 'sending');
         
-        // Funkcja wysyłania z fallback dla CORS
-        const sendMessage = async (url, useCorsProxy = false) => {
-            const actualUrl = useCorsProxy ? CORS_PROXY_URL : url;
-            console.log(`📡 Próbuję wysłać do: ${actualUrl}`);
-            console.log(`🔧 CORS Proxy: ${useCorsProxy ? 'TAK' : 'NIE'}`);
-            
-            const response = await fetch(actualUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    message: messageText
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            return response;
-        };
+        // Wysyłanie do odpowiedniego endpointu
+        console.log(`📡 Wysyłam do: ${N8N_WEBHOOK_URL}`);
+        console.log(`🌍 Środowisko: ${IS_LOCAL ? 'LOKALNE' : 'VERCEL'}`);
         
-        // Główna logika wysyłania z fallback
-        let response;
-        try {
-            // Pierwsze podejście: użyj aktualnego URL
-            response = await sendMessage(N8N_WEBHOOK_URL, USE_CORS_PROXY);
-        } catch (error) {
-            console.log('⚠️ Błąd pierwszego podejścia:', error.message);
-            
-            // Jeśli jesteśmy w produkcji i nie używamy jeszcze CORS proxy, spróbuj z nim
-            if (!IS_LOCAL && !USE_CORS_PROXY) {
-                console.log('🔄 Próbuję z CORS proxy...');
-                USE_CORS_PROXY = true;
-                try {
-                    response = await sendMessage(N8N_WEBHOOK_URL, USE_CORS_PROXY);
-                } catch (proxyError) {
-                    throw new Error(`Błąd z CORS proxy: ${proxyError.message}`);
-                }
-            } else {
-                throw error;
-            }
+        const response = await fetch(N8N_WEBHOOK_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: messageText
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
         // Przetwarzanie odpowiedzi
