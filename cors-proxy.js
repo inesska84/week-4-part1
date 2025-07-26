@@ -3,7 +3,7 @@ const https = require('https');
 const url = require('url');
 
 const PORT = 3001;
-const TARGET_URL = 'https://anna2084.app.n8n.cloud/webhook-test/1221a370-32ad-4fd0-92d2-1a930407c2aa';
+const TARGET_URL = 'https://anna2084.app.n8n.cloud/webhook/1221a370-32ad-4fd0-92d2-1a930407c2aa';
 
 const server = http.createServer((req, res) => {
     // Dodanie nagłówków CORS
@@ -56,7 +56,7 @@ const server = http.createServer((req, res) => {
         
         if (action === 'getPresentation') {
             // Endpoint do generowania prezentacji
-            targetEndpoint = 'https://anna2084.app.n8n.cloud/webhook-test/presentation-generator';
+            targetEndpoint = 'https://anna2084.app.n8n.cloud/webhook/presentation-generator';
             console.log('📊 Using presentation endpoint');
         }
         

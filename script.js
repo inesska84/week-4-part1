@@ -1,6 +1,6 @@
 // === KONFIGURACJA ===
 // Oryginalny URL webhooka n8n
-const ORIGINAL_N8N_WEBHOOK_URL = 'https://anna2084.app.n8n.cloud/webhook-test/1221a370-32ad-4fd0-92d2-1a930407c2aa';
+const ORIGINAL_N8N_WEBHOOK_URL = 'https://anna2084.app.n8n.cloud/webhook/1221a370-32ad-4fd0-92d2-1a930407c2aa';
 
 // Automatyczne wykrycie środowiska (lokalne vs produkcja)
 const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -88,15 +88,30 @@ function extractAIResponse(data) {
 function addPresentationButton() {
     // Sprawdź czy przycisk już istnieje
     if (document.getElementById('presentationButton')) {
+        console.log('🔄 Przycisk prezentacji już istnieje, pokazuję sekcję');
+        const presentationSection = document.getElementById('presentation-section');
+        if (presentationSection) {
+            presentationSection.style.display = 'block';
+        }
         return;
     }
     
     console.log('🎯 Dodaję przycisk generowania prezentacji');
     
+    // Utwórz kontener dla przycisku i instrukcji
+    const buttonContainer = document.createElement('div');
+    buttonContainer.className = 'space-y-3';
+    
+    // Dodaj instrukcję
+    const instruction = document.createElement('p');
+    instruction.className = 'text-sm text-gray-600 mb-3';
+    instruction.innerHTML = '💡 <strong>Uwaga:</strong> Naciśnij przycisk poniżej dopiero po zakończeniu całej rozmowy z AI (po odpowiedzi na wszystkie 3 pytania)';
+    
+    // Utwórz przycisk
     const button = document.createElement('button');
     button.id = 'presentationButton';
-    button.innerHTML = '🎨 Generuj mi prezentację!';
-    button.className = 'w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:from-purple-700 hover:to-blue-700 transition duration-300 transform hover:scale-105 mt-4';
+    button.innerHTML = '🎨 Generuj prezentację';
+    button.className = 'w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-lg font-semibold';
     
     button.onclick = function() {
         console.log('🚀 Użytkownik kliknął przycisk generowania prezentacji');
@@ -107,22 +122,21 @@ function addPresentationButton() {
         window.location.href = redirectUrl;
     };
     
-    // Dodaj przycisk do kontenera z wiadomościami
-    const messagesContainer = document.getElementById('messages');
-    if (messagesContainer) {
-        const buttonContainer = document.createElement('div');
-        buttonContainer.className = 'mb-4 px-4';
-        buttonContainer.appendChild(button);
-        
-        const helpText = document.createElement('p');
-        helpText.className = 'text-sm text-gray-600 text-center mt-2';
-        helpText.textContent = '💡 Naciśnij ten przycisk po zakończeniu rozmowy z AI';
-        buttonContainer.appendChild(helpText);
-        
-        messagesContainer.appendChild(buttonContainer);
-        
-        // Scroll do przycisku
-        button.scrollIntoView({ behavior: 'smooth' });
+    // Dodaj elementy do kontenera
+    buttonContainer.appendChild(instruction);
+    buttonContainer.appendChild(button);
+    
+    // Znajdź sekcję prezentacji i dodaj przycisk
+    const presentationSection = document.getElementById('presentation-section');
+    if (presentationSection) {
+        const centerDiv = presentationSection.querySelector('.text-center');
+        if (centerDiv) {
+            centerDiv.appendChild(buttonContainer);
+            presentationSection.style.display = 'block';
+            console.log('✅ Przycisk prezentacji dodany poniżej panelu wprowadzania');
+        }
+    } else {
+        console.error('❌ Nie znaleziono sekcji prezentacji');
     }
 }
 
@@ -130,10 +144,7 @@ function addPresentationButton() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📱 Aplikacja chat AI została zainicjalizowana');
     
-    updateConnectionStatus('🔌 Łączenie z serwerem...', 'connecting');
-    
-    // Sprawdzenie czy serwer jest dostępny
-    checkServerConnection();
+    updateConnectionStatus('✅ Aplikacja gotowa', 'connected');
     
     // Ustawienie event listenerów
     messageInput.addEventListener('keypress', function(e) {
