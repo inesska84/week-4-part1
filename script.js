@@ -7,12 +7,12 @@ const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hos
 
 // URL endpoints dla różnych środowisk
 const LOCAL_CORS_PROXY_URL = 'http://localhost:3001';
-const VERCEL_FUNCTION_URL = '/api/cors-proxy';
+const EXTERNAL_CORS_PROXY_URL = 'https://cors-anywhere.herokuapp.com/' + ORIGINAL_N8N_WEBHOOK_URL;
 
 // URL do użycia w zależności od środowiska
 let N8N_WEBHOOK_URL = IS_LOCAL 
     ? LOCAL_CORS_PROXY_URL      // Lokalnie używaj lokalny proxy
-    : VERCEL_FUNCTION_URL;      // Na Vercel używaj Vercel Function
+    : EXTERNAL_CORS_PROXY_URL;  // Na Vercel używaj zewnętrzny CORS proxy
 
 // === REFERENCJE DO ELEMENTÓW DOM ===
 const messagesContainer = document.getElementById('messages-container');
