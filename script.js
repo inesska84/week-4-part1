@@ -7,12 +7,12 @@ const IS_LOCAL = window.location.hostname === 'localhost' || window.location.hos
 
 // URL endpoints dla różnych środowisk
 const LOCAL_CORS_PROXY_URL = 'http://localhost:3001';
-const RAILWAY_CORS_PROXY_URL = 'https://cors-proxy-railway-production.up.railway.app/webhook';
+const SIMPLE_CORS_PROXY_URL = 'https://corsproxy.io/?' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
 
 // URL do użycia w zależności od środowiska
 let N8N_WEBHOOK_URL = IS_LOCAL 
     ? LOCAL_CORS_PROXY_URL      // Lokalnie używaj lokalny proxy
-    : RAILWAY_CORS_PROXY_URL;   // Na Vercel używaj Railway CORS proxy
+    : SIMPLE_CORS_PROXY_URL;    // Na Vercel używaj corsproxy.io
 
 // === REFERENCJE DO ELEMENTÓW DOM ===
 const messagesContainer = document.getElementById('messages-container');
