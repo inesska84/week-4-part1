@@ -25,13 +25,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     const presentationData = JSON.parse(decodedData);
                     console.log('📊 Dane z URL (sparsowane):', presentationData);
                     
+                    // Dodatkowe logowanie struktury danych
+                    console.log('🔍 Klucze w danych:', Object.keys(presentationData));
+                    
                     // Sprawdź czy dane zawierają slajdy
                     if (presentationData && presentationData.slides && Array.isArray(presentationData.slides)) {
+                        console.log('✅ Znaleziono tablicę slajdów bezpośrednio w danych');
                         return presentationData;
                     } else if (presentationData && presentationData.json_result) {
                         // Obsługa przypadku, gdy mamy dane z n8n w innym formacie
                         // Konwersja danych z formatu n8n do formatu prezentacji
-                        console.log('🔄 Konwersja danych z n8n do formatu prezentacji');
+                        console.log('🔄 Znaleziono json_result - konwersja danych z n8n do formatu prezentacji');
                         return convertDataToPresentation(presentationData);
                     }
                 } catch (error) {
