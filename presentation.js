@@ -19,8 +19,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (dataParam) {
                 try {
                     const decodedData = decodeURIComponent(dataParam);
+                    console.log('🔍 RAW dane z URL (dekodowane):', decodedData);
+                    console.log('🔍 RAW dane z URL (pierwsze 500 znaków):', decodedData.substring(0, 500));
+                    
                     const presentationData = JSON.parse(decodedData);
-                    console.log('📊 Dane z URL:', presentationData);
+                    console.log('📊 Dane z URL (sparsowane):', presentationData);
                     
                     // Sprawdź czy dane zawierają slajdy
                     if (presentationData && presentationData.slides && Array.isArray(presentationData.slides)) {
@@ -84,7 +87,17 @@ document.addEventListener('DOMContentLoaded', function() {
             throw new Error('Brak danych do prezentacji');
         } catch (error) {
             console.error('❌ Błąd w getPresentationData:', error);
-            return getExampleData();
+            
+            // Pokaż użytkownikowi błąd zamiast przykładowych danych
+            document.getElementById('slide-header').textContent = 'BŁĄD DANYCH';
+            document.getElementById('slide-body').innerHTML = `
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                    <strong>Błąd:</strong> ${error.message}<br/>
+                    <strong>Sprawdź konsolę dla szczegółów</strong>
+                </div>
+            `;
+            
+            throw error;
         }
     }
     
