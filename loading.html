@@ -65,39 +65,27 @@
         } else {
             statusDiv.textContent = 'Przetwarzam dane z n8n...';
             
-            try {
-                // Parsuj JSON z message
-                const responseData = JSON.parse(message);
-                console.log('📨 Parsed data:', responseData);
-                
-                // Sprawdź czy mamy json_result
-                if (responseData.json_result) {
-                    const pitchData = responseData.json_result;
-                    
-                    // Przekieruj do presentation.html z danymi
-                    const presentationUrl = `presentation.html?` + 
-                        `customer=${encodeURIComponent(pitchData.customer)}&` +
-                        `problem=${encodeURIComponent(pitchData.problem)}&` +
-                        `unique=${encodeURIComponent(pitchData.unique)}`;
-                    
-                    statusDiv.textContent = 'Przekierowuję do prezentacji...';
-                    
-                    setTimeout(() => {
-                        window.location.href = presentationUrl;
-                    }, 2000);
-                } else {
-                    throw new Error('Brak json_result w odpowiedzi');
-                }
-            } catch (error) {
-                console.error('❌ Błąd parsowania JSON:', error);
+            statusDiv.textContent = 'Oczekuję na implementację HTTP requestu...';
+            
+            // Tutaj będzie miejsce na faktyczne wywołanie HTTP request do n8n
+            // Na razie tylko pokazujemy że czekamy
+            console.log('⏳ Czekam na implementację HTTP requestu do:', webhookUrl);
+            console.log('📨 Wiadomość do wysłania:', message);
+            
+            statusDiv.textContent = 'UWAGA: Przekierowanie będzie się działo dopiero po otrzymaniu odpowiedzi z serwera n8n';
+            
+            // INSTRUKCJA DLA DEWELOPERA
+            setTimeout(() => {
                 statusDiv.innerHTML = `
-                    <div class="p-4 bg-red-100 rounded border border-red-300 text-red-800">
-                        <strong>Błąd:</strong> Nie można przetworzyć danych z n8n<br/>
-                        <strong>Surowe dane:</strong> ${message}<br/>
-                        <strong>Błąd:</strong> ${error.message}
+                    <div class="p-4 bg-yellow-100 rounded border border-yellow-300 text-yellow-800">
+                        <strong>Status:</strong> Czekam na implementację HTTP requestu<br/>
+                        <strong>Webhook:</strong> ${webhookUrl}<br/>
+                        <strong>Message:</strong> ${message}<br/>
+                        <br/>
+                        <em>Przekierowanie do presentation.html nastąpi dopiero po otrzymaniu odpowiedzi z n8n</em>
                     </div>
                 `;
-            }
+            }, 1000);
         }
     </script>
 </body>
