@@ -111,13 +111,35 @@ function addPresentationButton() {
     button.innerHTML = '🎨 Generuj prezentację';
     button.className = 'w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed text-lg font-semibold';
     
-    button.onclick = function() {
+    button.onclick = async function() {
         console.log('🚀 Użytkownik kliknął przycisk generowania prezentacji');
-        const lastUserMessage = messages.length > 0 ? messages[messages.length - 1].content : 'Zakończenie rozmowy';
-        const redirectUrl = 'loading.html?message=' + encodeURIComponent(lastUserMessage) + 
-                          '&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
-        console.log('🔗 Przekierowuję do:', redirectUrl);
-        window.location.href = redirectUrl;
+        
+        // Disable button during processing
+        button.disabled = true;
+        button.innerHTML = '⏳ Generuję...';
+        
+        try {
+            // Zbierz dane z konwersacji
+            const conversationData = {
+                action: 'getPresentation',
+                messages: messages.map(msg => msg.content).join('\n'),
+                timestamp: new Date().toISOString()
+            };
+            
+            console.log('📤 Wysyłam request do n8n dla prezentacji:', conversationData);
+            
+            // Przekieruj do loading page z instrukcją wysłania requestu
+            const redirectUrl = 'loading.html?message=' + encodeURIComponent(JSON.stringify(conversationData)) + 
+                              '&webhookUrl=' + encodeURIComponent(ORIGINAL_N8N_WEBHOOK_URL);
+            console.log('🔗 Przekierowuję do:', redirectUrl);
+            window.location.href = redirectUrl;
+            
+        } catch (error) {
+            console.error('❌ Błąd podczas przygotowania danych:', error);
+            button.disabled = false;
+            button.innerHTML = '🎨 Generuj prezentację';
+            alert('Błąd podczas przygotowania danych dla prezentacji');
+        }
     };
     
     // Dodaj elementy do kontenera

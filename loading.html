@@ -41,6 +41,59 @@
     <script>
         console.log('🔄 Loading page started');
         
+        // Funkcja wysyłania requestu do n8n
+        async function sendPresentationRequest(webhookUrl, messageData, statusDiv) {
+            try {
+                statusDiv.textContent = 'Łączę z n8n...';
+                
+                // Parse message data
+                let requestData;
+                try {
+                    requestData = JSON.parse(messageData);
+                } catch (e) {
+                    // Fallback - jeśli nie JSON, wyślij jako text
+                    requestData = { message: messageData };
+                }
+                
+                console.log('📤 Wysyłam do n8n:', requestData);
+                
+                // Użyj tego samego CORS proxy co chat
+                const corsProxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(webhookUrl);
+                
+                const response = await fetch(corsProxyUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                statusDiv.textContent = 'Przetwarzam odpowiedź z n8n...';
+                
+                const responseData = await response.text();
+                console.log('📥 Odpowiedź z n8n:', responseData);
+                
+                // Przekieruj do presentation.html z danymi
+                setTimeout(() => {
+                    window.location.href = `presentation.html?data=${encodeURIComponent(responseData)}`;
+                }, 1000);
+                
+            } catch (error) {
+                console.error('❌ Błąd requestu do n8n:', error);
+                statusDiv.innerHTML = `
+                    <div class="p-4 bg-red-100 rounded border border-red-300 text-red-800">
+                        <strong>Błąd:</strong> Nie można połączyć z n8n<br/>
+                        <strong>Szczegóły:</strong> ${error.message}<br/>
+                        <strong>Webhook:</strong> ${webhookUrl}
+                    </div>
+                `;
+            }
+        }
+        
         // BLOKADA AUTOMATYCZNYCH PRZEKIEROWAŃ
         let allowRedirect = false;
         
@@ -63,29 +116,13 @@
             statusDiv.textContent = 'Błąd: Brak danych do wygenerowania prezentacji';
             statusDiv.className += ' text-red-500';
         } else {
-            statusDiv.textContent = 'Przetwarzam dane z n8n...';
+            statusDiv.textContent = 'Wysyłam request do n8n...';
             
-            statusDiv.textContent = 'Oczekuję na implementację HTTP requestu...';
+            // Wywołaj HTTP request do n8n
+            console.log('📤 Wysyłam request do n8n:', webhookUrl);
+            console.log('📨 Dane:', message);
             
-            // Tutaj będzie miejsce na faktyczne wywołanie HTTP request do n8n
-            // Na razie tylko pokazujemy że czekamy
-            console.log('⏳ Czekam na implementację HTTP requestu do:', webhookUrl);
-            console.log('📨 Wiadomość do wysłania:', message);
-            
-            statusDiv.textContent = 'UWAGA: Przekierowanie będzie się działo dopiero po otrzymaniu odpowiedzi z serwera n8n';
-            
-            // INSTRUKCJA DLA DEWELOPERA
-            setTimeout(() => {
-                statusDiv.innerHTML = `
-                    <div class="p-4 bg-yellow-100 rounded border border-yellow-300 text-yellow-800">
-                        <strong>Status:</strong> Czekam na implementację HTTP requestu<br/>
-                        <strong>Webhook:</strong> ${webhookUrl}<br/>
-                        <strong>Message:</strong> ${message}<br/>
-                        <br/>
-                        <em>Przekierowanie do presentation.html nastąpi dopiero po otrzymaniu odpowiedzi z n8n</em>
-                    </div>
-                `;
-            }, 1000);
+            sendPresentationRequest(webhookUrl, message, statusDiv);
         }
     </script>
 </body>
