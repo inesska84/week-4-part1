@@ -79,9 +79,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            // Jeśli nie udało się pobrać danych, zwróć przykładowe dane
-            console.log('ℹ️ Używam przykładowych danych');
-            return getExampleData();
+            // Jeśli nie udało się pobrać danych - ERROR
+            console.error('❌ Brak danych do prezentacji');
+            throw new Error('Brak danych do prezentacji');
         } catch (error) {
             console.error('❌ Błąd w getPresentationData:', error);
             return getExampleData();
@@ -114,10 +114,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         
-        // Jeśli nie znaleziono danych, użyj przykładowych
+        // Jeśli nie znaleziono danych - ERROR
         if (!jsonResult) {
-            console.warn('⚠️ Nie znaleziono danych w formacie json_result, używam przykładowych');
-            return getExampleData();
+            console.error('❌ Nie znaleziono danych w formacie json_result. Otrzymane dane:', data);
+            throw new Error('Brak prawidłowych danych z n8n');
         }
         
         // Konwersja danych do formatu prezentacji
