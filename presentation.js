@@ -9,99 +9,21 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentSlideIndex = 0;
     let slides = [];
     
-    // Funkcja do pobrania danych prezentacji z URL lub z n8n
-    async function getPresentationData() {
+    // Dane prezentacji z sessionStorage (wymagamy czystego JSON od backendu)
+    function getPresentationData() {
+        const raw = sessionStorage.getItem('presentationData');
+        if (!raw) {
+            throw new Error('Brak danych prezentacji w sessionStorage');
+        }
         try {
-            const urlParams = new URLSearchParams(window.location.search);
-            const dataParam = urlParams.get('data');
-            
-            // Jeśli dane są przekazane w URL
-            if (dataParam) {
-                try {
-                    const decodedData = decodeURIComponent(dataParam);
-                    console.log('🔍 RAW dane z URL (dekodowane):', decodedData);
-                    console.log('🔍 RAW dane z URL (pierwsze 500 znaków):', decodedData.substring(0, 500));
-                    
-                    const presentationData = JSON.parse(decodedData);
-                    console.log('📊 Dane z URL (sparsowane):', presentationData);
-                    
-                    // Dodatkowe logowanie struktury danych
-                    console.log('🔍 Klucze w danych:', Object.keys(presentationData));
-                    
-                    // Sprawdź czy dane zawierają slajdy
-                    if (presentationData && presentationData.slides && Array.isArray(presentationData.slides)) {
-                        console.log('✅ Znaleziono tablicę slajdów bezpośrednio w danych');
-                        return presentationData;
-                    } else if (presentationData && presentationData.json_result) {
-                        // Obsługa przypadku, gdy mamy dane z n8n w innym formacie
-                        // Konwersja danych z formatu n8n do formatu prezentacji
-                        console.log('🔄 Znaleziono json_result - konwersja danych z n8n do formatu prezentacji');
-                        return convertDataToPresentation(presentationData);
-                    }
-                } catch (error) {
-                    console.error('❌ Błąd podczas parsowania danych z URL:', error);
-                    throw new Error('Nieprawidłowy format danych w URL');
-                }
+            const data = JSON.parse(raw);
+            if (!data || !Array.isArray(data.slides)) {
+                throw new Error('Nieprawidłowy format danych (oczekiwano { slides: [...] })');
             }
-            
-            // Jeśli jest parametr webhookUrl, spróbuj pobrać dane z n8n
-            const webhookUrl = urlParams.get('webhookUrl');
-            if (webhookUrl) {
-                try {
-                    // Określ, czy używamy proxy CORS
-                    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                    const apiUrl = isLocalhost ? 'http://localhost:3001' : webhookUrl;
-                    
-                    console.log('🌐 Pobieranie danych z:', apiUrl);
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ 
-                            action: 'getPresentation',
-                            message: urlParams.get('message') || 'generate_presentation'
-                        })
-                    });
-                    
-                    if (!response.ok) {
-                        throw new Error(`Błąd HTTP: ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
-                    console.log('📊 Dane z n8n:', data);
-                    
-                    // Sprawdź czy dane zawierają slajdy
-                    if (data && data.slides && Array.isArray(data.slides)) {
-                        return data;
-                    } else if (data && data.json_result) {
-                        // Obsługa przypadku, gdy mamy dane z n8n w innym formacie
-                        return convertDataToPresentation(data);
-                    } else {
-                        throw new Error('Nieprawidłowy format danych z n8n');
-                    }
-                } catch (error) {
-                    console.error('❌ Błąd podczas pobierania danych z n8n:', error);
-                    throw error;
-                }
-            }
-            
-            // Jeśli nie udało się pobrać danych - ERROR
-            console.error('❌ Brak danych do prezentacji');
-            throw new Error('Brak danych do prezentacji');
-        } catch (error) {
-            console.error('❌ Błąd w getPresentationData:', error);
-            
-            // Pokaż użytkownikowi błąd zamiast przykładowych danych
-            document.getElementById('slide-header').textContent = 'BŁĄD DANYCH';
-            document.getElementById('slide-body').innerHTML = `
-                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-                    <strong>Błąd:</strong> ${error.message}<br/>
-                    <strong>Sprawdź konsolę dla szczegółów</strong>
-                </div>
-            `;
-            
-            throw error;
+            return data;
+        } catch (e) {
+            console.error('❌ Nieprawidłowy JSON w sessionStorage:', e);
+            throw new Error('Nieprawidłowe dane prezentacji');
         }
     }
     
@@ -112,18 +34,26 @@ document.addEventListener('DOMContentLoaded', function() {
         // Sprawdź różne możliwe formaty danych
         let jsonResult = null;
         
+        // PRZYPADEK 1: Bezpośrednio w obiekcie
         if (data.json_result) {
+            console.log('✅ Znaleziono json_result bezpośrednio w danych');
             jsonResult = data.json_result;
-        } else if (data.output && data.output.json_result) {
+        } 
+        // PRZYPADEK 2: W zagnieżdżonym obiekcie output
+        else if (data.output && data.output.json_result) {
+            console.log('✅ Znaleziono json_result w data.output');
             jsonResult = data.output.json_result;
-        } else {
-            // Szukaj głębiej w strukturze
+        } 
+        // PRZYPADEK 3: Szukaj głębiej w strukturze
+        else {
             for (const key in data) {
                 if (typeof data[key] === 'object' && data[key] !== null) {
                     if (data[key].json_result) {
+                        console.log(`✅ Znaleziono json_result w data.${key}`);
                         jsonResult = data[key].json_result;
                         break;
                     } else if (data[key].output && data[key].output.json_result) {
+                        console.log(`✅ Znaleziono json_result w data.${key}.output`);
                         jsonResult = data[key].output.json_result;
                         break;
                     }
@@ -134,7 +64,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Jeśli nie znaleziono danych - ERROR
         if (!jsonResult) {
             console.error('❌ Nie znaleziono danych w formacie json_result. Otrzymane dane:', data);
-            throw new Error('Brak prawidłowych danych z n8n');
+            throw new Error('Brak prawidłowych danych z n8n - n8n musi zwrócić czysty JSON z polem json_result');
         }
         
         // Konwersja danych do formatu prezentacji
@@ -267,10 +197,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Inicjalizacja prezentacji
-    async function initPresentation() {
+    function initPresentation() {
         try {
             // Pobierz dane prezentacji
-            const presentationData = await getPresentationData();
+            const presentationData = getPresentationData();
             
             // Zapisz slajdy
             slides = presentationData.slides || [];
