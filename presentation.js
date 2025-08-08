@@ -17,10 +17,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         try {
             const data = JSON.parse(raw);
-            if (!data || !Array.isArray(data.slides)) {
-                throw new Error('Nieprawidłowy format danych (oczekiwano { slides: [...] })');
+            // Akceptuj zarówno {slides: [...]} jak i gołą tablicę zgodnie z wymogiem n8n
+            const slides = Array.isArray(data) ? data : data.slides;
+            if (!Array.isArray(slides)) {
+                throw new Error('Nieprawidłowy format danych (oczekiwano tablicy slajdów)');
             }
-            return data;
+            // Jeśli przyszły slajdy w formacie { slide_no, ... } — znormalizuj minimalnie po stronie frontu
+            const normalizedSlides = slides.map((s, idx) => ({
+                number: typeof s.number === 'number' ? s.number : (typeof s.slide_no === 'number' ? s.slide_no : idx + 1),
+                header: s.header || '',
+                body: s.body || '',
+                image: s.image || '',
+                photo_desc: s.photo_desc || '',
+                narration: s.narration || ''
+            }));
+            return { slides: normalizedSlides };
         } catch (e) {
             console.error('❌ Nieprawidłowy JSON w sessionStorage:', e);
             throw new Error('Nieprawidłowe dane prezentacji');
