@@ -229,23 +229,36 @@ async function handleSendMessage() {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        // Przetwarzanie odpowiedzi
-        const data = await response.json();
-        console.log('📥 Otrzymano odpowiedź:', data);
-        
-        // Wydobycie odpowiedzi AI z potencjalnie złożonej struktury
-        const aiResponse = extractAIResponse(data);
-        
+        // Przetwarzanie odpowiedzi z miękkim fallbackiem na tekst
+        const contentType = response.headers.get('content-type') || '';
+        let data = null;
+        let textFallback = null;
+
+        try {
+            if (contentType.includes('application/json')) {
+                data = await response.json();
+                console.log('📥 Otrzymano JSON:', data);
+            } else {
+                textFallback = (await response.text())?.trim();
+                console.log('📥 Otrzymano non-JSON (text preview):', textFallback?.slice(0, 200));
+            }
+        } catch (e) {
+            console.warn('⚠️ Problem z parsowaniem JSON, próbuję response.text()', e);
+            try { textFallback = (await response.clone().text())?.trim(); } catch {}
+        }
+
+        let aiResponse = null;
+        if (textFallback) {
+            aiResponse = textFallback;
+        } else if (data) {
+            // Wydobycie odpowiedzi AI z potencjalnie złożonej struktury
+            aiResponse = extractAIResponse(data);
+        }
+
         if (aiResponse) {
-            // Wyświetlenie odpowiedzi AI
             displayAIMessage(aiResponse);
-            
             console.log('🔍 Odpowiedź AI została wyświetlona:', aiResponse);
-            
-            // Dodaj przycisk do generowania prezentacji po każdej odpowiedzi AI
-            setTimeout(() => {
-                addPresentationButton();
-            }, 500);
+            setTimeout(() => { addPresentationButton(); }, 500);
         } else {
             displaySystemMessage('Nie udało się odczytać odpowiedzi.');
         }
