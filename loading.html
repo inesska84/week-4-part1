@@ -73,29 +73,36 @@
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
-                statusDiv.textContent = 'Przetwarzam odpowiedź z n8n...';
+                statusDiv.textContent = 'Analizuję odpowiedź z n8n...';
 
-                // Wymagaj odpowiedzi JSON z backendu
-                const contentType = response.headers.get('content-type') || '';
-                if (!contentType.includes('application/json')) {
-                    const rawText = await response.text();
-                    console.error('❌ Backend nie zwrócił JSON. Content-Type:', contentType, 'Body:', rawText);
-                    statusDiv.innerHTML = `
-                        <div class="p-4 bg-red-100 rounded border border-red-300 text-red-800 text-left">
-                            <div class="font-bold mb-1">Błąd: backend musi zwracać JSON</div>
-                            <div class="text-sm">Oczekiwano nagłówka <code>Content-Type: application/json</code>.</div>
-                            <div class="mt-2 text-xs"><strong>Otrzymany Content-Type:</strong> ${contentType || '(brak)'}</div>
-                        </div>
-                    `;
-                    return;
+                // Podgląd odpowiedzi niezależnie od typu
+                const contentType = response.headers.get('content-type') || '(brak)';
+                const rawText = await response.clone().text();
+
+                console.log('ℹ️ Content-Type:', contentType);
+                console.log('ℹ️ Długość:', rawText.length);
+                console.log('🧪 Surowa odpowiedź (podgląd 1000 znaków):', rawText.slice(0, 1000));
+
+                const escapeHtml = (s) => s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+                statusDiv.innerHTML = `
+                    <div class="p-4 bg-blue-50 rounded border border-blue-200 text-left overflow-auto max-h-64">
+                        <div class="font-semibold">Odpowiedź z n8n</div>
+                        <div class="text-xs mt-1"><b>Content-Type:</b> ${contentType}</div>
+                        <div class="text-xs"><b>Długość:</b> ${rawText.length}</div>
+                        <pre class="text-xs mt-2 whitespace-pre-wrap">${escapeHtml(rawText.slice(0, 1000))}${rawText.length>1000?'...':''}</pre>
+                    </div>
+                `;
+
+                // Jeśli to JSON, automatycznie kontynuuj
+                try {
+                    const jsonData = await response.clone().json();
+                    console.log('✅ Sparsowano JSON:', jsonData);
+                    sessionStorage.setItem('presentationData', JSON.stringify(jsonData));
+                    window.location.href = 'presentation.html';
+                } catch (e) {
+                    console.warn('❌ Odpowiedź nie była poprawnym JSON – zatrzymuję się na podglądzie.', e);
+                    // Zostawiamy surowy podgląd bez przekierowania
                 }
-
-                const jsonData = await response.json();
-                console.log('✅ Otrzymano JSON z n8n:', jsonData);
-
-                // Zapisz dane do sessionStorage i idź do strony prezentacji
-                sessionStorage.setItem('presentationData', JSON.stringify(jsonData));
-                window.location.href = 'presentation.html';
                 
             } catch (error) {
                 console.error('❌ Błąd requestu do n8n:', error);
