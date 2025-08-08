@@ -119,11 +119,9 @@ function addPresentationButton() {
         button.innerHTML = '⏳ Generuję...';
         
         try {
-            // Zbierz dane z konwersacji
+            // Lekki trigger dla n8n – generuj prezentację na bazie danych w backendzie
             const conversationData = {
-                action: 'getPresentation',
-                messages: messages.map(msg => msg.content).join('\n'),
-                timestamp: new Date().toISOString()
+                action: 'getPresentation'
             };
             
             console.log('📤 Wysyłam request do n8n dla prezentacji:', conversationData);
